@@ -113,6 +113,16 @@ for coloring in coloring_condition:
 
                     behaviours_list = [pos[:,0], pos_dir, mov_dir, speed, time, inner_time, trial_id]
                     beh_names = ['Position', 'DirPosition', 'MovDir', 'Speed', 'Time', 'InnerTime', 'TrialID']
+                    behaviour_dict = {
+                        'position':behaviours_list[0],
+                        '(pos,dir)':behaviours_list[1],
+                        'mov_dir':behaviours_list[2],
+                        'speed':behaviours_list[3],
+                        'time':behaviours_list[4],
+                        'inner_time':behaviours_list[5],
+                        'trial_id':behaviours_list[6]
+                    }
+
                     mi_all = []
                     for beh_index, beh in enumerate(behaviours_list):
                         print('MI for variable:' + beh_names[beh_index])
@@ -125,7 +135,7 @@ for coloring in coloring_condition:
                         # mi_stack = np.vstack([mi,mi2,mi3]).T
                         mi_all.append(mi)
                     # mi_final = np.hstack(mi_all)
-                    mi_dict[maze]['behaviour'] = behaviours_list
+                    mi_dict[maze]['behaviour'] = behaviour_dict
                     mi_dict[maze]['signal'] = signal
                     mi_dict[maze]['valid_index'] = valid_index
                     mi_dict[maze]['MIR'] = mi_all
@@ -211,10 +221,9 @@ mi_pd = pd.DataFrame(data={ 'mouse': mouse_name_list,
 
 mi_pd_lt = mi_pd[mi_pd['session_type'] == 'lt']
 palette = ['purple', 'yellow']  # Define your own list of colors
-
 fig, axes = plt.subplots(1,7, figsize = (21,3))
 
-sns.violinplot(mi_pd_lt, hue="area", y="mi_pos", ax=axes[0], palette = palette, legend= False)
+sns.violinplot(mi_pd_lt, hue="area", y="mi_pos", ax=axes[0], palette = palette, legend= True)
 #sns.stripplot(mi_pd_lt,hue="area", y="mi_pos",palette = 'dark:k', dodge=True, size=5, jitter=True, ax = axes[0],legend=False)
 
 sns.violinplot(mi_pd_lt, hue="area", y="mi_posdir", ax=axes[1], palette = palette, legend= False)
@@ -244,23 +253,109 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
 
-layer = 'superficial'
-df = mi_pd_lt[mi_pd_lt['area'] == layer]
+k = 5
+for area in ['deep','superficial']:
+    df = mi_pd_lt[mi_pd_lt['area'] == area]
+    # 1. Select the MI columns
+    mi_cols = ['mi_pos', 'mi_posdir', 'mi_dir', 'mi_speed',
+               'mi_time', 'mi_inner_trial_time', 'mi_trial_id']
+    X = df[mi_cols].values
+    # Standardize
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    # KMeans
+    kmeans = KMeans(n_clusters=k, random_state=42)
+    df['cluster'] = kmeans.fit_predict(X_scaled)
 
+    mice_list = mice_dict[area]
+    for mouse in mice_list:
+        mdata_dir = os.path.join(data_dir, mouse)  # mouse save dir
+        msave_dir = os.path.join(save_dir, mouse)  # mouse save dir
+        mi_dict = lrgu.load_pickle(mdata_dir, f"{mouse}_mi_{signal_name}_dict.pkl")
+        session_names = list(mi_dict.keys())
+        session_names.sort()
+        for idx, session in enumerate(session_names):
+            if 'lt' in session:
+                mice_df = df[df['mouse'] == mouse]
+                clusters_mouse = np.array(mice_df['cluster'])
+                mi_dict[session]['cluster_id'] = clusters_mouse
+        lrgu.save_pickle(msave_dir, f"{mouse}_mi_cluster_{signal_name}_dict.pkl", mi_dict)
+        lrgu.print_time_verbose(local_time, global_time)
+        sys.stdout = original
+        f.close()
+
+    # t-SNE
+    tsne = TSNE(n_components=2, perplexity=30, learning_rate='auto', init='pca', random_state=42)
+    X_tsne = tsne.fit_transform(X_scaled)
+
+    # Add to DataFrame
+    df['tsne_1'] = X_tsne[:, 0]
+    df['tsne_2'] = X_tsne[:, 1]
+
+    # --- Plotting Setup ---
+    fig, axes = plt.subplots(3, 3, figsize=(16, 14))
+    axes = axes.flatten()
+    # Plot 1: t-SNE colored by cluster
+    sns.scatterplot(data=df, x='tsne_1', y='tsne_2', hue='cluster',
+                    ax=axes[0], palette='tab10', s=40, alpha=0.8)
+    axes[0].set_title('t-SNE (colored by cluster)')
+    axes[0].legend(title='Cluster', bbox_to_anchor=(1.05, 1), loc='upper left')
+    # Plot 2: t-SNE colored by mouse name
+    sns.scatterplot(data=df, x='tsne_1', y='tsne_2', hue='mouse',
+                    ax=axes[1], palette='Set2', s=40, alpha=0.8)
+    axes[1].set_title('t-SNE (colored by mouse)')
+    axes[1].legend(title='Mouse', bbox_to_anchor=(1.05, 1), loc='upper left')
+    # Plot 3–9: t-SNE colored by each MI feature
+    for i, col in enumerate(mi_cols):
+        ax = axes[i+2]
+        sc = ax.scatter(df['tsne_1'], df['tsne_2'], c=df[col],
+                        cmap='coolwarm', s=15, alpha=0.9, vmin = 0, vmax = 0.4)
+        ax.set_title(f't-SNE (colored by {col})')
+        plt.colorbar(sc, ax=ax, orientation='vertical', shrink=0.8)
+    # Final layout
+    fig.suptitle('t-SNE Embedding with Clustering, Mouse ID, and MI Features', fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.savefig(os.path.join(data_dir, f'MI_cluster_{area}_{signal_name}.png'), dpi=400, bbox_inches="tight")
+    plt.show()
+
+#### cluster_all_together
+
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans
+
+k = 5
+df = mi_pd_lt.copy()
 # 1. Select the MI columns
 mi_cols = ['mi_pos', 'mi_posdir', 'mi_dir', 'mi_speed',
-           'mi_time', 'mi_inner_trial_time', 'mi_trial_id']
-
+            'mi_time', 'mi_inner_trial_time', 'mi_trial_id']
 X = df[mi_cols].values
-
 # Standardize
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
-
 # KMeans
-k = 5
 kmeans = KMeans(n_clusters=k, random_state=42)
 df['cluster'] = kmeans.fit_predict(X_scaled)
+original = sys.stdout
+global_time = timeit.default_timer()  # initialize time
+local_time = timeit.default_timer()
+
+mice_list = ['CGrin1','CZ3','CZ4','CZ6','CZ8','CZ9','ChZ4','ChZ7','ChZ8','GC2','GC3','GC7','GC5_nvista','TGrin1']
+for mouse in mice_list:
+    mdata_dir = os.path.join(data_dir, mouse)  # mouse save dir
+    msave_dir = os.path.join(save_dir, mouse)  # mouse save dir
+    mi_dict = lrgu.load_pickle(mdata_dir, f"{mouse}_mi_{signal_name}_dict.pkl")
+    session_names = list(mi_dict.keys())
+    session_names.sort()
+    for idx, session in enumerate(session_names):
+        if 'lt' in session:
+            mice_df = df[df['mouse'] == mouse]
+            clusters_mouse = np.array(mice_df['cluster'])
+            mi_dict[session]['cluster_id'] = clusters_mouse
+    lrgu.save_pickle(msave_dir, f"{mouse}_mi_cluster_all_{signal_name}_dict.pkl", mi_dict)
+    lrgu.print_time_verbose(local_time, global_time)
+    sys.stdout = original
 
 # t-SNE
 tsne = TSNE(n_components=2, perplexity=30, learning_rate='auto', init='pca', random_state=42)
@@ -273,25 +368,16 @@ df['tsne_2'] = X_tsne[:, 1]
 # --- Plotting Setup ---
 fig, axes = plt.subplots(3, 3, figsize=(16, 14))
 axes = axes.flatten()
-
 # Plot 1: t-SNE colored by cluster
 sns.scatterplot(data=df, x='tsne_1', y='tsne_2', hue='cluster',
-                ax=axes[0], palette='tab10', s=40, alpha=0.8)
+                    ax=axes[0], palette='tab10', s=40, alpha=0.8)
 axes[0].set_title('t-SNE (colored by cluster)')
 axes[0].legend(title='Cluster', bbox_to_anchor=(1.05, 1), loc='upper left')
-
 # Plot 2: t-SNE colored by mouse name
-sns.scatterplot(data=df, x='tsne_1', y='tsne_2', hue='mouse',
-                ax=axes[1], palette='Set2', s=40, alpha=0.8)
-# Add mouse names as annotations (centered)
-#for mouse_name in df['mouse'].unique():
-#    x_mean = df[df['mouse'] == mouse_name]['tsne_1'].mean()
-#    y_mean = df[df['mouse'] == mouse_name]['tsne_2'].mean()
-#    axes[1].text(x_mean, y_mean, mouse_name, fontsize=9, weight='bold', ha='center', va='center')
-
+sns.scatterplot(data=df, x='tsne_1', y='tsne_2', hue='area',
+                    ax=axes[1], palette='Set2', s=40, alpha=0.8)
 axes[1].set_title('t-SNE (colored by mouse)')
 axes[1].legend(title='Mouse', bbox_to_anchor=(1.05, 1), loc='upper left')
-
 # Plot 3–9: t-SNE colored by each MI feature
 for i, col in enumerate(mi_cols):
     ax = axes[i+2]
@@ -299,9 +385,55 @@ for i, col in enumerate(mi_cols):
                     cmap='coolwarm', s=15, alpha=0.9, vmin = 0, vmax = 0.4)
     ax.set_title(f't-SNE (colored by {col})')
     plt.colorbar(sc, ax=ax, orientation='vertical', shrink=0.8)
-
 # Final layout
 fig.suptitle('t-SNE Embedding with Clustering, Mouse ID, and MI Features', fontsize=16)
 plt.tight_layout(rect=[0, 0, 1, 0.96])
-plt.savefig(os.path.join(data_dir, f'MI_cluster_{layer}_{signal_name}.png'), dpi=400, bbox_inches="tight")
+plt.savefig(os.path.join(data_dir, f'MI_cluster_all_{signal_name}_area.png'), dpi=400, bbox_inches="tight")
 plt.show()
+
+#########################COUNT THE NEURONS PER CLUSTER """"""""""""""""""""""""""""""""""""""""
+
+
+# Count neurons per mouse, area, and cluster
+mouse_counts = df.groupby(['area', 'mouse', 'cluster']).size().reset_index(name='count')
+
+# Total neurons per mouse
+mouse_totals = df.groupby(['area', 'mouse']).size().reset_index(name='total_neurons')
+
+# Merge and normalize
+mouse_counts = pd.merge(mouse_counts, mouse_totals, on=['area', 'mouse'])
+mouse_counts['normalized'] = mouse_counts['count'] / mouse_counts['total_neurons']
+
+# Now aggregate by area
+area_means = mouse_counts.groupby(['area', 'cluster'])['normalized'].mean().reset_index()
+area_sems = mouse_counts.groupby(['area', 'cluster'])['normalized'].sem().reset_index()
+area_stats = pd.merge(area_means, area_sems, on=['area', 'cluster'], suffixes=('_mean', '_sem'))
+
+#sns.set(style="whitegrid")
+palette = {'superficial': 'purple', 'deep': 'gold'}
+
+plt.figure(figsize=(10, 6))
+
+# Plot bars
+ax = sns.barplot(data=mouse_counts, x='cluster', y='normalized',
+                 hue='area', palette=palette, ci='sd', edgecolor='k')
+
+# Overlay black dots per mouse with correct positioning
+sns.stripplot(data=mouse_counts, x='cluster', y='normalized',
+              hue='area', dodge=True, color='black', size=5,
+              jitter=False, ax=ax)
+
+# Fix legend (avoid duplication)
+handles, labels = ax.get_legend_handles_labels()
+n = len(set(mouse_counts['area']))
+plt.legend(handles[:n], labels[:n], title='Area', loc='upper right')
+
+# Labels and layout
+plt.title('Normalized Neuron Counts per Cluster (by Area)')
+plt.ylabel('Fraction of Neurons in Cluster')
+plt.xlabel('Cluster ID')
+plt.savefig(os.path.join(data_dir, f'MI_cluster_all_{signal_name}_area_counts.png'), dpi=400, bbox_inches="tight")
+
+plt.tight_layout()
+plt.show()
+
