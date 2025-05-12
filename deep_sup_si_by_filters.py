@@ -129,6 +129,8 @@ for area in mice_area:
 
                 signal = mi_dict[session]['signal']
                 signal = signal[valid_index, :]
+                selected_indices = np.random.choice(signal.shape[1], 20, replace=False)
+                signal = signal[:, selected_indices]
 
                 noise_idx, signal_idx = filter_noisy_outliers(signal)
                 print(f"Working on session {session} ({idx + 1}/{len(session_names)}):",end='')
@@ -175,7 +177,7 @@ for area in mice_area:
                         print(f" {beh_name}_{filter_size}={si:.4f} |", end='', sep='', flush='True')
                         print()
 
-        lrgu.save_pickle(msave_dir, f"{mouse}_si_filters_{signal_name}_{si_neigh}dict.pkl", si_dict)
+        lrgu.save_pickle(msave_dir, f"{mouse}_si_filters_downsampled_{signal_name}_{si_neigh}dict.pkl", si_dict)
         lrgu.print_time_verbose(local_time, global_time)
         sys.stdout = original
 
@@ -224,11 +226,14 @@ df = pd.DataFrame(df_rows)
 # Optional: sort it for readability
 df.sort_values(by=['area','mouse', 'session', 'behavioral_label', 'filter'], inplace=True)
 
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 # Set up style and palette
-#sns.set(style='whitegrid')
 palette = {'superficial': 'purple', 'deep': 'gold'}
+# Convert filter size to time in seconds (sampling rate = 20 Hz)
+sampling_rate = 20  # Hz
+df['filter_time'] = df['filter'] / sampling_rate
 # Get unique behavioral labels
 behavior_labels = df['behavioral_label'].unique()
 # Create subplots: one row per behavior
@@ -243,17 +248,120 @@ for i, beh_label in enumerate(behavior_labels):
     beh_df = df[df['behavioral_label'] == beh_label]
     # Lineplot with error bars per area
     sns.lineplot(data=beh_df,
-                 x='filter', y='si', hue='area',
+                 x='filter_time', y='si', hue='area',
                  errorbar='sd', ax=ax, palette=palette, marker='o')
     # Labels and formatting
-    ax.set_title(f'Structure Index vs Filter Size ({beh_label})')
+    ax.set_title(f'Structure Index vs Filter Time ({beh_label})')
     ax.set_ylabel('Structure Index (SI)')
-    ax.set_xlabel('Filter Size')
+    ax.set_xlabel('Filter Size (seconds)' if i == len(behavior_labels) - 1 else '')
     ax.legend(title='Area', loc='upper right')
     ax.set_ylim(0, 1)  # Optional: standardize y axis across all plots
     ax.grid(False)
 # Final layout
 plt.tight_layout()
 plt.show()
-fig.savefig(os.path.join(save_dir, f"SI_filter_{signal_name}.png"), dpi=400,
+# Save figure
+fig.savefig(os.path.join(save_dir, f"SI_filter_{signal_name}_time_axis.png"), dpi=400,
             bbox_inches="tight")
+
+
+df= df[df['behavioral_label'].isin(['pos', 'time'])]
+# Get unique behavioral labels
+behavior_labels = df['behavioral_label'].unique()
+# Create subplots: one row per behavior
+fig, axes = plt.subplots(len(behavior_labels), 1, figsize=(8, 2 * len(behavior_labels)), sharex=True)
+# If only one behavior, keep axes as list
+if len(behavior_labels) == 1:
+    axes = [axes]
+# Plot each behavior separately
+for i, beh_label in enumerate(behavior_labels):
+    ax = axes[i]
+    # Filter data for current behavioral label
+    beh_df = df[df['behavioral_label'] == beh_label]
+    # Lineplot with error bars per area
+    sns.lineplot(data=beh_df,
+                 x='filter_time', y='si', hue='area',
+                 errorbar='sd', ax=ax, palette=palette, marker='o')
+    # Labels and formatting
+    ax.set_title(f'Structure Index vs Filter Time ({beh_label})')
+    ax.set_ylabel('Structure Index (SI)')
+    ax.set_xlabel('Filter Size (seconds)' if i == len(behavior_labels) - 1 else '')
+    ax.legend(title='Area', loc='upper right')
+    ax.set_ylim(0, 1)  # Optional: standardize y axis across all plots
+    ax.grid(False)
+# Final layout
+plt.tight_layout()
+plt.show()
+# Save figure
+fig.savefig(os.path.join(save_dir, f"SI_filter_pos_time_downsampled20_{signal_name}_time_axis.png"), dpi=400,
+            bbox_inches="tight")
+
+
+##############################################################33
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.stats import ttest_ind
+import os
+
+# Convert filter size to time in seconds (sampling rate = 20 Hz)
+sampling_rate = 20
+df['filter_time'] = df['filter'] / sampling_rate
+
+# Filter data for filter_time = 0.2 and behavioral labels 'pos' and 'time'
+df_plot = df[(df['filter_time'] == 0.2) & (df['behavioral_label'].isin(['pos', 'time']))]
+
+# Plot settings
+palette = {'superficial': 'purple', 'deep': 'gold'}
+alpha_levels = [(0.001, '***'), (0.01, '**'), (0.05, '*')]
+
+# Create barplot: x = behavior, bars = area
+plt.figure(figsize=(8, 6))
+ax = sns.barplot(data=df_plot, x='behavioral_label', y='si', hue='area',
+                 palette=palette, errorbar='sd', capsize=0.1)
+
+# Significance test (one-sided: deep > superficial) for each behavior
+y_max = df_plot['si'].max()
+increment = 0.05
+
+for i, beh in enumerate(['pos', 'time']):
+    beh_df = df_plot[df_plot['behavioral_label'] == beh]
+    si_sup = beh_df[beh_df['area'] == 'superficial']['si']
+    si_deep = beh_df[beh_df['area'] == 'deep']['si']
+
+    # Two-sided t-test
+    stat, pval_two_sided = ttest_ind(si_deep, si_sup, equal_var=False)
+
+    # Convert to one-sided p-value (H1: deep > superficial)
+    if stat > 0:
+        pval = pval_two_sided / 2
+    else:
+        pval = 1.0  # not in direction of interest
+
+    # Determine significance symbol
+    signif = ''
+    for alpha, symbol in alpha_levels:
+        if pval < alpha:
+            signif = symbol
+            break
+
+    # Add significance to plot
+    if signif:
+        x1, x2 = i - 0.2, i + 0.2
+        y = y_max + (i + 1) * increment
+        ax.plot([x1, x1, x2, x2], [y, y + 0.01, y + 0.01, y], lw=1.3, color='black')
+        ax.text((x1 + x2) / 2, y + 0.015, signif, ha='center', va='bottom', fontsize=12)
+
+# Final formatting
+ax.set_title('Structure Index (SI) at Filter Time = 0.2s\n(One-sided test: Deep > Superficial)')
+ax.set_ylabel('Structure Index (SI)')
+ax.set_xlabel('Behavioral Condition')
+ax.set_ylim(0, y_max + 0.2)
+ax.legend(title='Area')
+plt.tight_layout()
+plt.show()
+
+# Save figure
+fig_path = os.path.join(save_dir, f"SI_bar_comparison_0.2s_{signal_name}_one_sided.png")
+plt.savefig(fig_path, dpi=400, bbox_inches="tight")
+print(f"Saved figure to {fig_path}")
