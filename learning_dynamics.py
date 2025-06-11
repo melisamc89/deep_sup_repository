@@ -1,6 +1,6 @@
 import os, copy
 from datetime import datetime
-import numpy as np
+import numpy as np 
 from sklearn.metrics import pairwise_distances
 from scipy.ndimage import gaussian_filter1d
 
@@ -20,7 +20,7 @@ base_dir =  '/home/melma31/Documents/deepsup_project/'
 #|________________________________________________________________________|#
 
 data_dir = os.path.join(base_dir, 'data')
-save_dir = os.path.join(base_dir, 'dynamics')
+save_dir = os.path.join(base_dir, 'results')
 if not os.path.isdir(save_dir): os.makedirs(save_dir)
 
 coloring_condition = ['single_color']#,'dual_color']
@@ -41,8 +41,7 @@ min_dist = 0.1
 
 for coloring in ['single_color']:
     if coloring == 'single_color':
-        #paradigm =['lt_and_rot','only_lt']
-        paradigm =['only_lt']
+        paradigm =['lt_and_rot']
     else:
         paradigm =['only_lt']
     for paradigm_ in paradigm:
@@ -299,7 +298,7 @@ import seaborn as sns
 import pandas as pd
 from scipy import stats
 
-data_dir = os.path.join(base_dir, 'dynamics')
+data_dir = os.path.join(base_dir, 'results')
 
 mice_dict = {'superficial': ['CGrin1','CZ3','CZ4','CZ6','CZ8','CZ9'],
             'deep':['ChZ4','ChZ7','ChZ8','GC2','GC3','GC7','GC5_nvista','TGrin1']
@@ -319,7 +318,7 @@ flow_output_list = []
 for area in mice_area:
     mice_list = mice_dict[area]
     for mouse in mice_list:
-        mdata_dir = os.path.join(data_dir,mouse)
+        mdata_dir = data_dir
         file_name =  f"{mouse}_dynamic_dict.pkl"
         print(file_name)
         dynamic_dict = lrgu.load_pickle(mdata_dir,file_name)
@@ -351,43 +350,10 @@ flow_pd = pd.DataFrame(data={'area':area_list,
 palette = ['purple', 'yellow']  # Define your own list of colors
 fig = plt.figure()
 ax = plt.subplot(111)
-sns.violinplot(flow_pd, x="session", y="flow_pos_diff", hue="area", palette=palette, ax=ax, split = True)
+sns.barplot(flow_pd, x="session", y="flow_pos_diff", hue="area", palette=palette, ax=ax)
 sns.stripplot(flow_pd, x='session', y='flow_pos_diff', hue='area', palette = ['k','k'],dodge=True, size=5, jitter=True)
 plt.savefig(os.path.join(data_dir, f'flow_pos_diff_{signal_name}.png'), dpi=400, bbox_inches="tight")
 
-
-# Plot
-palette = ['purple', 'yellow']
-fig, ax = plt.subplots()
-sns.barplot(data=flow_pd, x="session", y="flow_pos_diff", hue="area", palette=palette, ax=ax, split=True)
-sns.stripplot(data=flow_pd, x='session', y='flow_pos_diff', hue='area', palette=['k', 'k'], dodge=True, size=5, jitter=True)
-
-# Remove duplicate legend
-handles, labels = ax.get_legend_handles_labels()
-ax.legend(handles[:2], labels[:2], title="Area")
-
-for i, session in enumerate(['lt']):
-    sup_vals = flow_pd[(flow_pd['session'] == session) & (flow_pd['area'] == 'superficial')]['flow_pos_diff']
-    deep_vals = flow_pd[(flow_pd['session'] == session) & (flow_pd['area'] == 'deep')]['flow_pos_diff']
-    if len(sup_vals) == 0 or len(deep_vals) == 0:
-        print(f"Skipping {session}: missing data in one of the groups.")
-        continue
-    # Welch's t-test (does not assume equal variances)
-    stat, pval = stats.ttest_ind(sup_vals, deep_vals, equal_var=False)
-    # Significance stars
-    if pval < 0.001:
-        star = '***'
-    elif pval < 0.01:
-        star = '**'
-    elif pval < 0.05:
-        star = '*'
-    else:
-        star = 'ns'
-    # Annotate plot
-    y_max = max(sup_vals.max(), deep_vals.max()) + 2
-    ax.plot([i - 0.2, i + 0.2], [y_max, y_max], color='k')
-    ax.text(i, y_max + 0.5, star, ha='center', va='bottom', fontsize=14)
-plt.savefig(os.path.join(data_dir, f'flow_pos_diff_{signal_name}_stats.png'), dpi=400, bbox_inches="tight")
 
 #__________________________________________________________________________
 #|                                                                        |#
@@ -405,7 +371,7 @@ ring_location = []
 for area in mice_area:
     mice_list = mice_dict[area]
     for mouse in mice_list:
-        mdata_dir = os.path.join(data_dir,mouse)
+        mdata_dir = data_dir
         file_name =  f"{mouse}_dynamic_dict.pkl"
         print(file_name)
         dynamic_dict = lrgu.load_pickle(mdata_dir,file_name)
@@ -446,7 +412,7 @@ flow_pd = pd.DataFrame(data={
                      'rad_modulus': rad_modulus_list,
                      'tan_modulus': tan_modulus_list,
                      'rad_tan_ratio': rad_tan_ratio,
-                     'ring_location': ring_location})
+                     'ring_location': ring_location})   
 
 
 
@@ -454,13 +420,13 @@ palette = ['purple', 'yellow']  # Define your own list of colors
 
 fig = plt.figure(figsize = (15,5))
 ax = plt.subplot(131)
-sns.violinplot(x = 'ring_location', y = 'rad_modulus', hue = 'area', data = flow_pd, ax = ax, palette=palette, split = True)
+sns.barplot(x = 'ring_location', y = 'rad_modulus', hue = 'area', data = flow_pd, ax = ax, palette=palette)
 sns.stripplot(flow_pd, x='ring_location', y='rad_modulus', hue='area', palette = ['k','k'],dodge=True, size=5, jitter=True)
 ax = plt.subplot(132)
-sns.violinplot(x = 'ring_location', y = 'tan_modulus', hue = 'area', data = flow_pd, ax = ax, palette=palette, split = True)
+sns.barplot(x = 'ring_location', y = 'tan_modulus', hue = 'area', data = flow_pd, ax = ax, palette=palette)
 sns.stripplot(flow_pd, x='ring_location', y='tan_modulus', hue='area', palette = ['k','k'],dodge=True, size=5, jitter=True)
 ax = plt.subplot(133)
-sns.violinplot(x = 'ring_location', y = 'rad_tan_ratio', hue = 'area', data = flow_pd, ax = ax, palette=palette, split = True)
+sns.barplot(x = 'ring_location', y = 'rad_tan_ratio', hue = 'area', data = flow_pd, ax = ax, palette=palette)
 sns.stripplot(flow_pd, x='ring_location', y='rad_tan_ratio', hue='area', palette = ['k','k'],dodge=True, size=5, jitter=True)
 fig.suptitle(f'rad_tan_idx_{signal_name}')
 plt.savefig(os.path.join(data_dir, f'rad_tan_idx_sep_{signal_name}.png'), dpi = 400,bbox_inches="tight")
@@ -479,57 +445,3 @@ fig.suptitle(f'rad_tan_idx_{signal_name}')
 plt.savefig(os.path.join(data_dir, f'rad_tan_idx_sep_session_{signal_name}.png'), dpi = 400,bbox_inches="tight")
 plt.savefig(os.path.join(data_dir, f'rad_tan_idx_sep_session_{signal_name}.svg'), dpi = 400,bbox_inches="tight")
 ####################################################
-
-def barplot_with_stats(ax, data, y, title):
-    sns.barplot(
-        x='ring_location', y=y, hue='area', data=data, ax=ax,
-        palette=palette, errorbar='se', capsize=0.2, errwidth=1.5
-    )
-    sns.stripplot(
-        x='ring_location', y=y, hue='area', data=data,
-        palette=['k', 'k'], dodge=True, jitter=True, size=5, ax=ax
-    )
-
-    # Remove duplicate legend
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles[:2], labels[:2], title="Area")
-
-    # Stats + annotation
-    for i, ring in enumerate(['in', 'off']):
-        vals_sup = data[(data['ring_location'] == ring) & (data['area'] == 'superficial')][y]
-        vals_deep = data[(data['ring_location'] == ring) & (data['area'] == 'deep')][y]
-
-        if len(vals_sup) == 0 or len(vals_deep) == 0:
-            continue
-
-        # Welch's t-test
-        stat, pval = stats.ttest_ind(vals_sup, vals_deep, equal_var=False)
-        if pval < 0.001:
-            star = '***'
-        elif pval < 0.01:
-            star = '**'
-        elif pval < 0.05:
-            star = '*'
-        else:
-            star = 'ns'
-
-        # Plot significance
-        y_max = max(vals_sup.max(), vals_deep.max())
-        ax.plot([i - 0.2, i + 0.2], [y_max + 0.02 * y_max] * 2, color='k', linewidth=1.5)
-        ax.text(i, y_max + 0.05 * y_max, star, ha='center', va='bottom', fontsize=14)
-
-    ax.set_title(title)
-    ax.set_ylabel(y)
-
-# Plot setup
-fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-
-barplot_with_stats(axes[0], flow_pd, 'rad_modulus', 'Radial Modulus')
-barplot_with_stats(axes[1], flow_pd, 'tan_modulus', 'Tangential Modulus')
-barplot_with_stats(axes[2], flow_pd, 'rad_tan_ratio', 'Radial / Tangential Ratio')
-
-fig.suptitle(f'Radial vs Tangential Modulus — {signal_name}', fontsize=16)
-plt.tight_layout()
-plt.savefig(os.path.join(data_dir, f'rad_tan_idx_bar_{signal_name}.png'), dpi=400, bbox_inches="tight")
-plt.savefig(os.path.join(data_dir, f'rad_tan_idx_bar_{signal_name}.svg'), dpi=400, bbox_inches="tight")
-

@@ -177,7 +177,7 @@ for area in mice_area:
                         print(f" {beh_name}_{filter_size}={si:.4f} |", end='', sep='', flush='True')
                         print()
 
-        lrgu.save_pickle(msave_dir, f"{mouse}_si_filters_downsampled_{signal_name}_{si_neigh}dict.pkl", si_dict)
+        lrgu.save_pickle(msave_dir, f"{mouse}_si_filters_{signal_name}_{si_neigh}dict.pkl", si_dict)
         lrgu.print_time_verbose(local_time, global_time)
         sys.stdout = original
 
@@ -293,7 +293,7 @@ for i, beh_label in enumerate(behavior_labels):
 plt.tight_layout()
 plt.show()
 # Save figure
-fig.savefig(os.path.join(save_dir, f"SI_filter_pos_time_downsampled20_{signal_name}_time_axis.png"), dpi=400,
+fig.savefig(os.path.join(save_dir, f"SI_filter_pos_time_{signal_name}_time_axis.png"), dpi=400,
             bbox_inches="tight")
 
 

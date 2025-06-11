@@ -81,8 +81,10 @@ if not os.path.isdir(save_dir): os.makedirs(save_dir)
 dim = 3
 si_neigh = 50
 
-init_view1 = 90
-init_view2 = 45
+init_view1 = 30
+init_view2 = 30
+mice_dict = {'deep':['GC2']}
+mice_area = list(mice_dict.keys())
 
 for area in mice_area:
     mice_list = mice_dict[area]
@@ -138,17 +140,17 @@ for area in mice_area:
                 ax.scatter([], [], color=lrgu.get_dir_color(np.array([-1])), label='left')
                 ax.scatter([], [], color=lrgu.get_dir_color(np.array([1])), label='right')
                 ax.set_title('UMAP Direction')
-                ax.view_init(init_view1, init_view2)  # Set the view angle
+                ax.view_init(0, 0)  # Set the view angle
 
                 ax = fig.add_subplot(row, col, 6, projection='3d')
                 b = ax.scatter(*umap_emb[:, :3].T, c=beh_variables['pos'], s=1, alpha=0.5, cmap = 'magma')
                 ax.set_title('UMAP Position')
-                ax.view_init(init_view1, init_view2)  # Set the view angle
+                ax.view_init(0, 0)  # Set the view angle
 
                 ax = fig.add_subplot(row, col, 11, projection='3d')
                 b = ax.scatter(*umap_emb[:, :3].T, c=beh_variables['time'], s=1, alpha=0.5,cmap = 'Greens')
                 ax.set_title('UMAP Time')
-                ax.view_init(init_view1, init_view2)  # Set the view angle
+                ax.view_init(0, 0)  # Set the view angle
 
                 kernels = [4, 8, 14,20]
                 for index, filter_size in enumerate(kernels):

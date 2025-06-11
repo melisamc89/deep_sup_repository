@@ -1,5 +1,4 @@
 import sys, copy, os
-
 import numpy as np
 import pandas as pd
 import learning_repo.general_utils as lrgu
@@ -12,6 +11,17 @@ from sklearn.cluster import KMeans
 import pandas as pd
 import seaborn as sns
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+import numpy as np
+from scipy.stats import zscore
+
+
+### here we load two or three different datesets
+
+#Information about dataset1 : learning dataset
 
 learning_dir = '/home/melma31/Documents/learning_project/'
 deep_sup_dir = '/home/melma31/Documents/deepsup_project/'
@@ -36,7 +46,9 @@ else:
     non_learners = [5,6]
     non_learners_names = ['M2021', 'M2022']
 
-imaging_data = 'miniscope'
+# information about dataset2
+
+imaging_data = 'egrin'
 if imaging_data == 'miniscope_and_egrin':
     mice_dict = {'superficial': ['CGrin1','CZ3','CZ4','CZ6','CZ8','CZ9',
                                  'CalbEphys1GRIN1', 'CalbEphys1GRIN2'],
@@ -52,6 +64,7 @@ if imaging_data == 'miniscope':
           'deep':['ChZ4','ChZ7','ChZ8','GC2','GC3','GC7','GC5_nvista','TGrin1']
             }
 
+### loading dataset 1
 mice_list = learners + non_learners
 mice_names = learners_names + non_learners_names
 case = 'mov_same_length'
@@ -91,8 +104,8 @@ for session in sessions_names:
     mouse_session_final = np.vstack(mouse_session)
     mouse_session_list[session]['mice'] = mouse_session_final
     MI_session_dict[session]['MIR']=MIR
-from scipy.stats import zscore
 
+# create dataframe for dataset1
 mouse_name_list, session_list = [], []
 raw_mi_values = {key: [] for key in behavior_labels}
 z_mi_values = {f'z_{key}': [] for key in behavior_labels}
@@ -116,27 +129,18 @@ mi_pd_learners = pd.DataFrame({
     **z_mi_values
 })
 
-from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
-import numpy as np
-
+#### subdataselection and parameters for clustering
 # Parameters
 session_to_use = 'session4'
 k = 3
 unassigned_cluster_id = -10
-
 # 1. Filter session
 mi_pd_learners = mi_pd_learners[mi_pd_learners['session'] == session_to_use].copy()
-
 # 2. Extract z-scored MI features
 z_cols = [f'z_{key}' for key in behavior_labels]
 mi_raw = mi_pd_learners[z_cols].values
-
 # 3. Standardize features
 mi_scaled = StandardScaler().fit_transform(mi_raw)
-
 # 4. Dimensionality reduction
 if reduce == 'PCA':
     reducer = PCA(n_components=2)
@@ -154,12 +158,10 @@ if reduce == 'tSNE':
     mi_pd_learners['tSNE1'] = tsne_embedding_learners[:, 0]
     mi_pd_learners['tSNE2'] = tsne_embedding_learners[:, 1]
     reducer_name = 'tSNE'
-
 # 5. Clustering in original feature space
 kmeans = KMeans(n_clusters=k, random_state=42)
 initial_clusters = kmeans.fit_predict(mi_scaled)
 centroids = kmeans.cluster_centers_
-
 # 6. Keep only 75% closest neurons per cluster
 final_cluster_labels = np.full(mi_scaled.shape[0], unassigned_cluster_id)
 for cid in range(k):
@@ -173,7 +175,6 @@ for cid in range(k):
     keep_mask = dists <= threshold
     keep_indices = cluster_indices[keep_mask]
     final_cluster_labels[keep_indices] = cid
-
 # 7. Store results in the DataFrame
 mi_pd_learners['cluster'] = final_cluster_labels
 if reduce == 'PCA':
@@ -183,7 +184,6 @@ if reduce == 'PCA':
 ### second data set
 data_dir = os.path.join(deep_sup_dir, 'MIR')
 save_dir = os.path.join(deep_sup_dir, 'MIR','Transfer')
-
 if not os.path.isdir(save_dir): os.makedirs(save_dir)
 signal_name = 'clean_traces'
 mice_area = list(mice_dict.keys())
@@ -191,7 +191,6 @@ mice_area = list(mice_dict.keys())
 mouse_name_list, area_list, session_list = [], [], []
 raw_mi_values = {key: [] for key in ['pos', 'posdir', 'dir', 'speed', 'time', 'inner_trial_time', 'trial_id']}
 z_mi_values = {f'z_{key}': [] for key in raw_mi_values}
-
 # Collect MI data
 for area in mice_area:
     mice_list = mice_dict[area]
@@ -210,7 +209,7 @@ for area in mice_area:
                 for i, key in enumerate(raw_mi_values):
                     raw_mi_values[key].append(data[i][neuron])
                     z_mi_values[f'z_{key}'].append(data_z[i][neuron])
-# Create DataFrame
+# Create DataFrame2
 mi_pd = pd.DataFrame({
     'mouse': mouse_name_list,
     'area': area_list,
@@ -223,15 +222,10 @@ behavior_keys = list(raw_mi_values.keys())  # ['pos', 'posdir', 'dir', 'speed', 
 mi_pd['total_MI'] = mi_pd[behavior_keys].sum(axis=1)
 # 2. Mark top 20% of cells
 mi_pd_lt = mi_pd[mi_pd['session_type'] == 'lt']
-
-from sklearn.preprocessing import StandardScaler
-import numpy as np
-
-# Select z-scored MI features
+# 3 Select z-scored MI features
 X_target = mi_pd_lt[[f'z_{key}' for key in behavior_labels]].values
 X_target_scaled = StandardScaler().fit_transform(X_target)  # use same preprocessing type
-
-# --- Apply PCA transformation learned from dataset 1 ---
+# 4--- Apply PCA transformation learned from dataset 1 ---
 if reduce == 'PCA':
     X_target_pca = reducer.transform(X_target_scaled)
     mi_pd_lt[f'{reducer_name}1'] = X_target_pca[:, 0]
@@ -240,17 +234,14 @@ if reduce == 'tSNE':
     # Use the same preprocessing as dataset 1 (StandardScaler)
     X_target = mi_pd_lt[[f'z_{key}' for key in behavior_labels]].values
     X_target_scaled = StandardScaler().fit_transform(X_target)  # same method as mi_scaled
-
     # Transform into dataset 1's t-SNE space
     tsne_embedding_target = tsne_embedding_learners.transform(X_target_scaled)
     mi_pd_lt['tSNE1'] = tsne_embedding_target[:, 0]
     mi_pd_lt['tSNE2'] = tsne_embedding_target[:, 1]
-
-# --- Predict cluster assignments using trained KMeans ---
+# 5--- Predict cluster assignments using trained KMeans ---
 pred_clusters = kmeans.predict(X_target_scaled)
 pred_centroids = kmeans.cluster_centers_
-
-# Assign only top 75% closest points per cluster
+# 6 Assign only top 75% closest points per cluster
 final_labels = np.full(X_target_scaled.shape[0], -10)  # default: unassigned
 for cid in range(k):
     cluster_indices = np.where(pred_clusters == cid)[0]
@@ -264,12 +255,25 @@ for cid in range(k):
     keep_indices = cluster_indices[keep_mask]
     final_labels[keep_indices] = cid
 
-# Store cluster labels in the dataframe
+# 7 Store cluster labels in the dataframe
 mi_pd_lt['transferred_cluster'] = final_labels
 
-import matplotlib.pyplot as plt
-import seaborn as sns
+#### save cluster assignments
+# Save clusters to each session
+all_mice = list(mice_dict['superficial']) + list(mice_dict['deep'])
+for mouse in all_mice :
+    mdata_dir = os.path.join(data_dir, mouse)
+    msave_dir = os.path.join(save_dir, mouse)
+    if not os.path.isdir(msave_dir): os.makedirs(msave_dir)
+    mi_dict = lrgu.load_pickle(mdata_dir, f"{mouse}_mi_{signal_name}_dict_alldir.pkl")
+    for session in sorted(mi_dict):
+        if 'lt' in session:
+            clusters_mouse = mi_pd_lt[mi_pd_lt['mouse'] == mouse]['transferred_cluster'] .values
+            mi_dict[session]['cluster_id'] = clusters_mouse
+    lrgu.save_pickle(msave_dir, f"{mouse}_mi_transferred_cluster_{k}_all_{signal_name}_dict.pkl", mi_dict)
 
+
+##### start plotting
 # Define features to visualize
 plot_features = behavior_labels + ['cluster', 'mouse']  # shared base
 title_map = {k: k for k in behavior_labels}
@@ -320,25 +324,7 @@ for col_idx, col in enumerate(plot_features):
 plt.tight_layout()
 plt.suptitle(f'{reducer_name} Embedding: Dataset 1 (row 1) vs. Transferred Dataset 2 (row 2)', fontsize=16, y=1.02)
 plt.savefig(os.path.join(data_dir, f'MI_transferred_cluster_{reducer_name}_{signal_name}_area_mouse_zscored_{imaging_data}.png'), dpi=400, bbox_inches="tight")
-
 plt.show()
-
-
-
-#mi_pd = mi_pd_lt.copy()
-# Save clusters to each session
-#mice_list=  ['CGrin1','CZ3','CZ4','CZ6','CZ8','CZ9',
-#              'ChZ4','ChZ7','ChZ8','GC2','GC3','GC7','GC5_nvista','TGrin1']
-#for mouse in mice_list:
-#    mdata_dir = os.path.join(data_dir, mouse)
-#    msave_dir = os.path.join(save_dir, mouse)
-#    if not os.path.isdir(msave_dir): os.makedirs(msave_dir)
-#    mi_dict = lrgu.load_pickle(mdata_dir, f"{mouse}_mi_{signal_name}_dict_alldir.pkl")
-#    for session in sorted(mi_dict):
-#        if 'lt' in session:
-#            clusters_mouse = mi_pd[mi_pd['mouse'] == mouse]['transferred_cluster'] .values
-#            mi_dict[session]['cluster_id'] = clusters_mouse
-#    lrgu.save_pickle(msave_dir, f"{mouse}_mi_transferred_cluster_{k}_all_{signal_name}_dict.pkl", mi_dict)
 
 
 # Separate assigned vs. unassigned
