@@ -165,6 +165,7 @@ from sklearn.cluster import KMeans
 from scipy.stats import zscore
 from scipy.stats import mannwhitneyu
 from statsmodels.stats.multitest import multipletests
+from scipy.stats import ttest_ind
 
 
 base_dir =  '/home/melma31/Documents/deepsup_project/'
@@ -223,27 +224,16 @@ mi_pd = pd.DataFrame({
 # 1. Sum of raw MI values (across all behavioral labels)
 behavior_keys = list(raw_mi_values.keys())  # ['pos', 'posdir', 'dir', 'speed', 'time', 'inner_trial_time', 'trial_id']
 mi_pd['total_MI'] = mi_pd[behavior_keys].sum(axis=1)
-
 # 2. Mark top 20% of cells
-#threshold = np.percentile(mi_pd['total_MI'], topvalues)
-#mi_pd['topcells'] = mi_pd['total_MI'].apply(lambda x: 'yes' if x >= threshold else 'no')
-threshold = 0.5
+threshold = 0
 mi_pd['topcells'] = mi_pd['total_MI'].apply(lambda x: 'yes' if x >= threshold else 'no')
 
-
-mi_pd_lt = mi_pd[mi_pd['session_type'] == 'lt']
-mi_pd_lt = mi_pd_lt[mi_pd_lt['topcells'] == 'yes']
-palette = ['purple', 'yellow']  # Define your own list of colors
-# Features to plot
-
-
+# Filter data
+mi_pd_lt = mi_pd[(mi_pd['session_type'] == 'lt') & (mi_pd['topcells'] == 'yes')]
+palette = ['#9900ff', '#cc9900']  # Use valid hex color codes
 raw_features = ['pos', 'posdir', 'dir', 'speed', 'time', 'inner_trial_time', 'trial_id']
-#raw_features = ['z_pos', 'z_posdir', 'z_dir', 'z_speed', 'z_time', 'z_inner_trial_time', 'z_trial_id']
-
-palette = ['purple', 'gold']
-
 # Create subplots
-fig, axes = plt.subplots(1, len(raw_features), figsize=(3 * len(raw_features), 3))
+fig, axes = plt.subplots(1, len(raw_features), figsize=(3 * len(raw_features), 3), constrained_layout=True)
 if len(raw_features) == 1:
     axes = [axes]
 # Collect p-values
@@ -251,46 +241,42 @@ pvals = []
 for feature in raw_features:
     sup_vals = mi_pd_lt[mi_pd_lt['area'] == 'superficial'][feature]
     deep_vals = mi_pd_lt[mi_pd_lt['area'] == 'deep'][feature]
-
     if len(sup_vals) > 0 and len(deep_vals) > 0:
-        stat, p = mannwhitneyu(sup_vals, deep_vals, alternative='two-sided')
+        stat, p = ttest_ind(sup_vals, deep_vals, equal_var=False)  # Welch's t-test
     else:
         p = 1.0
     pvals.append(p)
-
 # FDR correction
 corrected_pvals = multipletests(pvals, method='fdr_bh')[1]
-
+from statannotations.Annotator import Annotator
 # Plot and annotate
 for i, (feature, p_corr) in enumerate(zip(raw_features, corrected_pvals)):
     ax = axes[i]
-    sns.violinplot(data=mi_pd_lt, x='area', y=feature, palette=palette, ax=ax, cut=0)
-
-    # Y limits
-    ymax = mi_pd_lt[feature].max()
-    y_annot = 0.75 * ymax
-
-    # Significance label
-    if p_corr < 0.001:
-        sig = '***'
-    elif p_corr < 0.01:
-        sig = '**'
-    elif p_corr < 0.05:
-        sig = '*'
-    else:
-        sig = 'no'
-
-    # Add line + star if significant
-    if sig:
-        ax.plot([0, 1], [y_annot, y_annot], color='black', linewidth=1.2)
-        ax.text(0.5, y_annot + 0.02 * ymax, sig, ha='center', va='bottom', fontsize=14)
-
+    sns.violinplot(data=mi_pd_lt, x='area', y=feature, hue='area',
+                   palette=palette, ax=ax, cut=0, legend=False)
+    pairs = [('superficial', 'deep')]
+    annotator = Annotator(ax, pairs, data=mi_pd_lt, x='area', y=feature,
+                          perform_stat_test=False)
+    annotator.configure(
+        test=None,
+        text_format='star',
+        loc='inside',
+        verbose=0,
+        pvalue_thresholds=[
+            [0.001, "***"],
+            [0.01, "**"],
+            [0.05, "*"],
+            [1, "ns"]
+        ]
+    )
+    annotator.set_pvalues([p_corr])
+    annotator.annotate()
     ax.set_title(feature)
-
 # Final layout
 fig.suptitle('MIR Features by Area Depth', fontsize=16, y=1.05)
 plt.tight_layout()
 plt.savefig(os.path.join(data_dir, f'MI_{signal_name}_violin_significance_raw_MIthreshold _{threshold}.png'), dpi=400, bbox_inches="tight")
+plt.savefig(os.path.join(data_dir, f'MI_{signal_name}_violin_significance_raw_MIthreshold _{threshold}.svg'), dpi=400, bbox_inches="tight")
 plt.show()
 
 

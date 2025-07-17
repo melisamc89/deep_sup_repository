@@ -48,7 +48,7 @@ else:
 
 # information about dataset2
 
-imaging_data = 'egrin'
+imaging_data = 'miniscope'
 if imaging_data == 'miniscope_and_egrin':
     mice_dict = {'superficial': ['CGrin1','CZ3','CZ4','CZ6','CZ8','CZ9',
                                  'CalbEphys1GRIN1', 'CalbEphys1GRIN2'],
@@ -331,56 +331,62 @@ plt.show()
 df_assigned = mi_pd_lt[mi_pd_lt['transferred_cluster'] != -10 ]
 df_unassigned = mi_pd_lt[mi_pd_lt['transferred_cluster'] == -10]
 # Plotting
-fig, axes = plt.subplots(3, 4, figsize=(20, 14))
 
+# Prepare 3x3 figure
+fig, axes = plt.subplots(3, 3, figsize=(18, 14))
 axes = axes.flatten()
 # --- Plot 1: Cluster ID ---
 ax = axes[0]
-# Gray background for discarded cells
-ax.scatter(df_unassigned[ f'{reducer_name}1'], df_unassigned[ f'{reducer_name}2'], color='lightgray', s=20, label='Unassigned', alpha=0.5)
-# Colored overlay for clustered cells
-custom_cluster_palette = {
-    0: 'green',
-    1: 'blue',
-    2: 'dimgray'  # dark gray
-}
-sns.scatterplot(data=df_assigned, x=rf'{reducer_name}1', y=f'{reducer_name}2', hue='transferred_cluster',
-                ax=ax, palette=custom_cluster_palette, s=40, alpha=0.8)
+ax.scatter(df_unassigned[f'{reducer_name}1'], df_unassigned[f'{reducer_name}2'],
+           color='lightgray', s=20, label='Unassigned', alpha=0.5)
+custom_cluster_palette = {0: '#bce784ff', 1: '#66cef4ff', 2: '#ec8ef8ff'} #bbbcc0ff
+
+sns.scatterplot(data=df_assigned, x=f'{reducer_name}1', y=f'{reducer_name}2',
+                hue='transferred_cluster', palette=custom_cluster_palette,
+                ax=ax, s=40, alpha=0.8)
 ax.set_title('t-SNE (colored by cluster)')
-ax.legend(title='Cluster', bbox_to_anchor=(1.05, 1), loc='upper left')
+if ax.get_legend() is not None:
+    ax.get_legend().remove()
 # --- Plot 2: Area ---
 ax = axes[1]
-ax.scatter(df_unassigned[f'{reducer_name}1'], df_unassigned[f'{reducer_name}2'], color='lightgray', s=20, alpha=0.5)
-sns.scatterplot(data=df_assigned, x=f'{reducer_name}1', y=f'{reducer_name}2', hue='area',
-                ax=ax, palette='Set2', s=40, alpha=0.8)
+ax.scatter(df_unassigned[f'{reducer_name}1'], df_unassigned[f'{reducer_name}2'],
+           color='lightgray', s=20, alpha=0.5)
+area_palette = {'superficial': '#9900ff', 'deep': '#cc9900'}
+sns.scatterplot(data=df_assigned, x=f'{reducer_name}1', y=f'{reducer_name}2',
+                hue='area', palette=area_palette, ax=ax, s=40, alpha=0.8)
 ax.set_title('t-SNE (colored by area)')
-ax.legend(title='Area', bbox_to_anchor=(1.05, 1), loc='upper left')
+if ax.get_legend() is not None:
+    ax.get_legend().remove()
 # --- Plot 3: Mouse ID ---
 ax = axes[2]
-ax.scatter(df_unassigned[f'{reducer_name}1'], df_unassigned[f'{reducer_name}2'], color='lightgray', s=20, alpha=0.5)
-sns.scatterplot(data=df_assigned, x=f'{reducer_name}1', y=f'{reducer_name}2', hue='mouse',
-                ax=ax, palette='tab20', s=40, alpha=0.8)
+ax.scatter(df_unassigned[f'{reducer_name}1'], df_unassigned[f'{reducer_name}2'],
+           color='lightgray', s=20, alpha=0.5)
+sns.scatterplot(data=df_assigned, x=f'{reducer_name}1', y=f'{reducer_name}2',
+                hue='mouse', palette='tab20', ax=ax, s=40, alpha=0.8)
 ax.set_title('t-SNE (colored by mouse ID)')
-ax.legend(title='Mouse', bbox_to_anchor=(1.05, 1), loc='upper left')
-# --- Plot 4: total_MI ---
-ax = axes[3]
-ax.scatter(df_unassigned[f'{reducer_name}1'], df_unassigned[f'{reducer_name}2'], color='lightgray', s=20, alpha=0.5)
-sc = ax.scatter(df_assigned[f'{reducer_name}1'], df_assigned[f'{reducer_name}2'], c=df_assigned['total_MI'],
-                cmap='coolwarm', s=40, alpha=0.8, vmin=0, vmax=1.5)
-ax.set_title('t-SNE (totalMI)')
-plt.colorbar(sc, ax=ax, orientation='vertical', shrink=0.8)
-for i, col in enumerate(behavior_keys):
-    ax = axes[i + 4]
-    ax.scatter(df_unassigned[f'{reducer_name}1'], df_unassigned[f'{reducer_name}2'], color='lightgray', s=15, alpha=0.5)
-    sc = ax.scatter(df_assigned[f'{reducer_name}1'], df_assigned[f'{reducer_name}2'], c=df_assigned[col],
-                    cmap='coolwarm', s=15, alpha=0.9, vmin=0, vmax=0.35)
+if ax.get_legend() is not None:
+    ax.get_legend().remove()
+# --- Plots 4–9: Raw MI features ---
+# Skip total_MI and start from behavior_keys
+for i, col in enumerate(behavior_keys[:6]):  # Only 6 more slots in 3x3 layout
+    ax = axes[i + 3]
+    ax.scatter(df_unassigned[f'{reducer_name}1'], df_unassigned[f'{reducer_name}2'],
+               color='lightgray', s=15, alpha=0.5)
+    sc = ax.scatter(df_assigned[f'{reducer_name}1'], df_assigned[f'{reducer_name}2'],
+                    c=df_assigned[col], cmap='coolwarm', s=15, alpha=0.9,
+                    vmin=0, vmax=0.20)
     ax.set_title(f't-SNE (colored by {col})')
-    plt.colorbar(sc, ax=ax, orientation='vertical', shrink=0.8)
+    #plt.colorbar(sc, ax=ax, orientation='vertical', shrink=0.8)
 # Final layout
 fig.suptitle('t-SNE Embedding with Clustering, Area, Mouse ID, and Raw MI Features', fontsize=16)
 plt.tight_layout(rect=[0, 0, 1, 0.96])
-plt.savefig(os.path.join(data_dir, f'MI_transferred_cluster_all_{signal_name}_area_mouse_zscored_{imaging_data}.png'), dpi=400, bbox_inches="tight")
+plt.savefig(os.path.join(data_dir, f'MI_transferred_cluster_all_{signal_name}_area_mouse_zscored_{imaging_data}.png'),
+            dpi=400, bbox_inches="tight")
+plt.savefig(os.path.join(data_dir, f'MI_transferred_cluster_all_{signal_name}_area_mouse_zscored_{imaging_data}.svg'),
+            dpi=400, bbox_inches="tight")
 plt.show()
+
+
 
 from scipy.stats import mannwhitneyu
 from scipy.stats import ttest_ind
@@ -394,7 +400,7 @@ mouse_totals = mi_pd_lt.groupby(['area', 'mouse']).size().reset_index(name='tota
 mouse_counts = pd.merge(mouse_counts, mouse_totals, on=['area', 'mouse'])
 mouse_counts['normalized'] = mouse_counts['count'] / mouse_counts['total_neurons']
 # Plotting
-palette = {'superficial': 'purple', 'deep': 'gold'}
+palette = {'superficial': '#9900ff', 'deep': '#cc9900'}
 plt.figure(figsize=(10, 6))
 # Barplot
 ax = sns.barplot(data=mouse_counts, x=clusters_name, y='normalized',
@@ -451,7 +457,6 @@ plt.show()
 
 from scipy.stats import mannwhitneyu
 from statsmodels.stats.multitest import multipletests
-
 pvals = []
 cluster_ids = sorted(mouse_counts[clusters_name].unique())
 
@@ -476,7 +481,6 @@ from scipy.stats import mannwhitneyu
 raw_mi_cols = list(raw_mi_values.keys())  # e.g., ['pos', 'posdir', 'dir', ...]
 
 clusters = sorted(mi_pd_lt['transferred_cluster'].unique())
-palette = {'superficial': 'purple', 'deep': 'gold'}
 
 # Plot per MI feature
 for info in raw_mi_cols:
@@ -521,5 +525,7 @@ for info in raw_mi_cols:
     plt.legend(title='Area', loc='upper right')
     plt.tight_layout()
     plt.savefig(os.path.join(save_dir, f"violin_MI_{info}_by_cluster_area_{imaging_data}.png"), dpi=300)
+    plt.savefig(os.path.join(save_dir, f"violin_MI_{info}_by_cluster_area_{imaging_data}.svg"), dpi=300)
+
     plt.show()
 

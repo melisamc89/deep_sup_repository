@@ -74,7 +74,7 @@ for area in mice_dict:
             }
 
             signal = mi_dict[session]['signal'][valid_index, :]
-            kernels = [0, 4, 8, 14]
+            kernels = [0, 4, 8, 14,20]
 
             smoothed_signals_dict = {}
             for filt in kernels:
@@ -104,6 +104,14 @@ for area in mice_dict:
 
         sys.stdout = sys.__stdout__
         f.close()
+
+
+
+
+
+
+
+
 
 
 #################3

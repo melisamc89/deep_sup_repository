@@ -301,7 +301,7 @@ for area in mice_area:
     mice_list = mice_dict[area]
     for mouse in mice_list:
         si_dict = lrgu.load_pickle(os.path.join(save_dir, mouse),
-                                   f"{mouse}_si_transferred_cluster_kmeans_{k}_all_{signal_name}_all_mov_dict_zscored.pkl")
+                                   f"{mouse}_si_tranferred_cluster_kmeans_{k}_all_{signal_name}_all_mov_dict_zscored.pkl")
         for session, beh_data in si_dict.items():
             for beh_label, cluster_data in beh_data.items():
                 for cluster_id, si_info in cluster_data.items():
@@ -364,7 +364,7 @@ for i, beh in enumerate(behavior_labels):
 
     # Plot violins by area
     sns.violinplot(data=beh_df, x='cluster', y='si', hue='area',
-                   ax=ax, palette=['gold', 'purple'], width=0.8, inner=None, split = True)
+                   ax=ax, palette=['#cc9900', '#9900ff'], width=0.8, inner=None, split = True)
 
     # Set aesthetics
     ax.set_title(f"Behavior: {beh}")
@@ -428,7 +428,7 @@ si_pos = si_pos[valid_mask]
 area = area[valid_mask]
 cluster = cluster[valid_mask]
 # Area color map
-area_colors = {'superficial': 'purple', 'deep': 'gold'}
+area_colors = {'superficial': '#9900ff', 'deep': '#cc9900'}
 marker_list = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'X']
 # Plot
 fig, ax = plt.subplots(figsize=(6, 4))
@@ -456,6 +456,71 @@ ax.grid(False)
 ax.set_title('SI Time vs Pos (Colored by Area, Marker = Cluster)')
 ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8, title='Cluster/Area')
 plt.tight_layout()
+plt.savefig(os.path.join(save_dir, f"SI_transferred_cluster_{k}_{signal_name}_pos_vs_time.png"),
+            dpi=400, bbox_inches='tight')
+plt.savefig(os.path.join(save_dir, f"SI_transferred_cluster_{k}_{signal_name}_pos_vs_time.svg"),
+            dpi=400, bbox_inches='tight')
+plt.show()
+###########################################################################
+
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+
+# Prepare data
+si_time = df[df['behavioral_label'] == 'time']['si'].values
+si_pos = df[df['behavioral_label'] == 'pos']['si'].values
+area = df[df['behavioral_label'] == 'pos']['area'].values
+cluster = df[df['behavioral_label'] == 'pos']['cluster'].values
+
+# Remove unassigned cluster -1
+valid_mask = cluster != -1
+si_time = si_time[valid_mask]
+si_pos = si_pos[valid_mask]
+area = area[valid_mask]
+cluster = cluster[valid_mask]
+
+# Color maps
+cluster_colors = {0: '#bce784', 1: '#66cef4', 2: '#ec8ef8'}
+area_edge_colors = {'superficial': '#9900ff', 'deep': '#cc9900'}
+
+marker_list = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'X']
+
+# Plot
+fig, ax = plt.subplots(figsize=(6, 4))
+unique_clusters = sorted(np.unique(cluster))
+
+for i, clust in enumerate(unique_clusters):
+    mask = cluster == clust
+    for area_type in ['superficial', 'deep']:
+        area_mask = (area == area_type) & mask
+        ax.scatter(
+            si_time[area_mask],
+            si_pos[area_mask],
+            c=cluster_colors.get(clust, 'gray'),
+            edgecolor=area_edge_colors[area_type],
+            marker=marker_list[i % len(marker_list)],
+            s=60,
+            label=f'Cluster {clust} ({area_type})',
+            linewidth=0.8,
+            alpha=0.9
+        )
+
+ax.set_xlabel('SI Time')
+ax.set_ylabel('SI Pos')
+ax.set_xlim([0, 1])
+ax.set_ylim([0, 1])
+ax.grid(False)
+ax.set_title('SI Time vs Pos (Cluster Color, Area Border)')
+ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8, title='Cluster/Area')
+plt.tight_layout()
+
+# Save plots
+plt.savefig(os.path.join(save_dir, f"SI_transferred_cluster_{k}_{signal_name}_pos_vs_time.png"),
+            dpi=400, bbox_inches='tight')
+plt.savefig(os.path.join(save_dir, f"SI_transferred_cluster_{k}_{signal_name}_pos_vs_time.svg"),
+            dpi=400, bbox_inches='tight')
+
 plt.show()
 
 ###############################################################################3
@@ -492,7 +557,7 @@ area_stats = pd.merge(area_means, area_sems, on=['area', 'cluster'], suffixes=('
 
 # --- Plotting ---
 sns.set(style="whitegrid")
-palette = {'superficial': 'purple', 'deep': 'gold'}
+palette = {'superficial': '#9900ff', 'deep': '#cc9900'}
 
 plt.figure(figsize=(10, 6))
 

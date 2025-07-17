@@ -230,7 +230,7 @@ df.sort_values(by=['area','mouse', 'session', 'behavioral_label', 'filter'], inp
 import matplotlib.pyplot as plt
 import seaborn as sns
 # Set up style and palette
-palette = {'superficial': 'purple', 'deep': 'gold'}
+palette = {'superficial': '#9900ff', 'deep': '#cc9900'}
 # Convert filter size to time in seconds (sampling rate = 20 Hz)
 sampling_rate = 20  # Hz
 df['filter_time'] = df['filter'] / sampling_rate
@@ -262,6 +262,8 @@ plt.tight_layout()
 plt.show()
 # Save figure
 fig.savefig(os.path.join(save_dir, f"SI_filter_{signal_name}_time_axis.png"), dpi=400,
+            bbox_inches="tight")
+fig.savefig(os.path.join(save_dir, f"SI_filter_{signal_name}_time_axis.svg"), dpi=400,
             bbox_inches="tight")
 
 
@@ -303,55 +305,43 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import ttest_ind
 import os
-
 # Convert filter size to time in seconds (sampling rate = 20 Hz)
 sampling_rate = 20
 df['filter_time'] = df['filter'] / sampling_rate
-
 # Filter data for filter_time = 0.2 and behavioral labels 'pos' and 'time'
 df_plot = df[(df['filter_time'] == 0.2) & (df['behavioral_label'].isin(['pos', 'time']))]
-
 # Plot settings
-palette = {'superficial': 'purple', 'deep': 'gold'}
 alpha_levels = [(0.001, '***'), (0.01, '**'), (0.05, '*')]
-
 # Create barplot: x = behavior, bars = area
-plt.figure(figsize=(8, 6))
+figure = plt.figure(figsize=(8, 6))
 ax = sns.barplot(data=df_plot, x='behavioral_label', y='si', hue='area',
                  palette=palette, errorbar='sd', capsize=0.1)
-
 # Significance test (one-sided: deep > superficial) for each behavior
 y_max = df_plot['si'].max()
 increment = 0.05
-
 for i, beh in enumerate(['pos', 'time']):
     beh_df = df_plot[df_plot['behavioral_label'] == beh]
     si_sup = beh_df[beh_df['area'] == 'superficial']['si']
     si_deep = beh_df[beh_df['area'] == 'deep']['si']
-
     # Two-sided t-test
     stat, pval_two_sided = ttest_ind(si_deep, si_sup, equal_var=False)
-
     # Convert to one-sided p-value (H1: deep > superficial)
     if stat > 0:
         pval = pval_two_sided / 2
     else:
         pval = 1.0  # not in direction of interest
-
     # Determine significance symbol
     signif = ''
     for alpha, symbol in alpha_levels:
         if pval < alpha:
             signif = symbol
             break
-
     # Add significance to plot
     if signif:
         x1, x2 = i - 0.2, i + 0.2
         y = y_max + (i + 1) * increment
         ax.plot([x1, x1, x2, x2], [y, y + 0.01, y + 0.01, y], lw=1.3, color='black')
         ax.text((x1 + x2) / 2, y + 0.015, signif, ha='center', va='bottom', fontsize=12)
-
 # Final formatting
 ax.set_title('Structure Index (SI) at Filter Time = 0.2s\n(One-sided test: Deep > Superficial)')
 ax.set_ylabel('Structure Index (SI)')
@@ -363,5 +353,7 @@ plt.show()
 
 # Save figure
 fig_path = os.path.join(save_dir, f"SI_bar_comparison_0.2s_{signal_name}_one_sided.png")
-plt.savefig(fig_path, dpi=400, bbox_inches="tight")
+figure.savefig(fig_path, dpi=400, bbox_inches="tight")
+fig_path = os.path.join(save_dir, f"SI_bar_comparison_0.2s_{signal_name}_one_sided.svg")
+figure.savefig(fig_path, dpi=400, bbox_inches="tight")
 print(f"Saved figure to {fig_path}")

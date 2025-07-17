@@ -171,8 +171,8 @@ mice_dict = {'superficial': ['CGrin1','CZ3','CZ4','CZ6','CZ8','CZ9'],
 mice_area = list(mice_dict.keys())
 signal_name = 'clean_traces'
 
-init_view1 = 90
-init_view2 = 45
+init_view1 = 30
+init_view2 = 60
 
 for area in mice_area:
     mice_list = mice_dict[area]
@@ -200,7 +200,7 @@ for area in mice_area:
                 ### define figure size
                 row = 1
                 col = 5
-                fig = plt.figure(figsize=(5, 25))
+                fig = plt.figure(figsize=(15, 5))
                 ax = fig.add_subplot(row, col, 1, projection='3d')
                 umap_emb = umap_dict[session]['umap']
                 ax.set_title('Position')
@@ -214,26 +214,29 @@ for area in mice_area:
                 ax.grid(False)
                 ax.view_init(init_view1, init_view2)  # Set the view angle
 
-                ax = fig.add_subplot(row, col, 3 , projection='3d')
-                ax.set_title('Speed')
-                ax.scatter(umap_emb[:, 0], umap_emb[:, 1], umap_emb[:, 2], c=speed, s=0.5, alpha=0.5, cmap='Reds')
-                ax.grid(False)
-                ax.view_init(init_view1, init_view2)  # Set the view angle
+                #ax = fig.add_subplot(row, col, 3 , projection='3d')
+                #ax.set_title('Speed')
+                #ax.scatter(umap_emb[:, 0], umap_emb[:, 1], umap_emb[:, 2], c=speed, s=0.5, alpha=0.05, cmap='Reds')
+                #ax.grid(False)
+                #ax.view_init(init_view1, init_view2)  # Set the view angle
 
-                ax = fig.add_subplot(row, col, 4 , projection='3d')
+                ax = fig.add_subplot(row, col, 3 , projection='3d')
                 ax.set_title('Time')
                 ax.scatter(umap_emb[:, 0], umap_emb[:, 1], umap_emb[:, 2], c=np.arange(0, umap_emb.shape[0]), s=0.5,
-                                       alpha=0.5, cmap='Greens')
+                                       alpha=0.5, cmap='YlGn_r')
                 ax.grid(False)
                 ax.view_init(init_view1, init_view2)  # Set the view angle
 
-                ax = fig.add_subplot(row, col, 5 , projection='3d')
-                ax.set_title('Trial ID ')
-                ax.scatter(umap_emb[:, 0], umap_emb[:, 1], umap_emb[:, 2], c=trial_id_mat, s=0.5, alpha=0.5, cmap='viridis')
-                ax.grid(False)
-                ax.view_init(init_view1, init_view2)  # Set the view angle
+                #ax = fig.add_subplot(row, col, 5 , projection='3d')
+                #ax.set_title('Trial ID ')
+                #ax.scatter(umap_emb[:, 0], umap_emb[:, 1], umap_emb[:, 2], c=trial_id_mat, s=0.05, alpha=0.5, cmap='viridis')
+                #ax.grid(False)
+                #ax.view_init(init_view1, init_view2)  # Set the view angle
                 fig.tight_layout()
 
                 fig.savefig(os.path.join(msave_dir, f"{mouse}_umap_{signal_name}_{session}_{init_view1}_{init_view2}.png"), dpi=400,
                         bbox_inches="tight")
+                fig.savefig(os.path.join(msave_dir, f"{mouse}_umap_{signal_name}_{session}_{init_view1}_{init_view2}.svg"), dpi=400,
+                        bbox_inches="tight")
+
 

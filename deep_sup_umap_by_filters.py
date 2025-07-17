@@ -125,58 +125,63 @@ for area in mice_area:
                 signal = signal[valid_index, :]
                 noise_idx, signal_idx = filter_noisy_outliers(signal)
 
-                row = 3
-                col = 5
-                fig = plt.figure(figsize=(25, 9))
+                row = 2
+                col = 4
+                fig = plt.figure(figsize=(10, 4))
 
                 # compute umap
-                umap_model = umap.UMAP(n_neighbors=120, n_components=dim, min_dist=0.1, random_state=42)
-                umap_model.fit(signal[valid_index, :])
-                umap_emb = umap_model.transform(signal[valid_index, :])
+                #umap_model = umap.UMAP(n_neighbors=120, n_components=dim, min_dist=0.1, random_state=42)
+                #umap_model.fit(signal[valid_index, :])
+                #umap_emb = umap_model.transform(signal[valid_index, :])
 
-                ax = fig.add_subplot(row, col, 1, projection='3d')
-                b = ax.scatter(*umap_emb[:, :3].T, color=mov_dir_color, s=1, alpha=0.5)
-                ax.scatter([], [], color=lrgu.get_dir_color(np.array([0])), label='none')
-                ax.scatter([], [], color=lrgu.get_dir_color(np.array([-1])), label='left')
-                ax.scatter([], [], color=lrgu.get_dir_color(np.array([1])), label='right')
-                ax.set_title('UMAP Direction')
-                ax.view_init(0, 0)  # Set the view angle
+                #ax = fig.add_subplot(row, col, 1, projection='3d')
+                #b = ax.scatter(*umap_emb[:, :3].T, color=mov_dir_color, s=1, alpha=0.5)
+                #ax.scatter([], [], color=lrgu.get_dir_color(np.array([0])), label='none')
+                #ax.scatter([], [], color=lrgu.get_dir_color(np.array([-1])), label='left')
+                #ax.scatter([], [], color=lrgu.get_dir_color(np.array([1])), label='right')
+                #ax.set_title('UMAP Direction')
+                #ax.view_init(0, 0)  # Set the view angle
 
-                ax = fig.add_subplot(row, col, 6, projection='3d')
-                b = ax.scatter(*umap_emb[:, :3].T, c=beh_variables['pos'], s=1, alpha=0.5, cmap = 'magma')
-                ax.set_title('UMAP Position')
-                ax.view_init(0, 0)  # Set the view angle
+                #ax = fig.add_subplot(row, col, 6, projection='3d')
+                #b = ax.scatter(*umap_emb[:, :3].T, c=beh_variables['pos'], s=1, alpha=0.5, cmap = 'magma')
+                #ax.set_title('UMAP Position')
+                #ax.view_init(0, 0)  # Set the view angle
 
-                ax = fig.add_subplot(row, col, 11, projection='3d')
-                b = ax.scatter(*umap_emb[:, :3].T, c=beh_variables['time'], s=1, alpha=0.5,cmap = 'Greens')
-                ax.set_title('UMAP Time')
-                ax.view_init(0, 0)  # Set the view angle
+                #ax = fig.add_subplot(row, col, 11, projection='3d')
+                #b = ax.scatter(*umap_emb[:, :3].T, c=beh_variables['time'], s=1, alpha=0.5,cmap = 'Greens')
+                #ax.set_title('UMAP Time')
+                #ax.view_init(0, 0)  # Set the view angle
 
-                kernels = [4, 8, 14,20]
+                kernels = [4, 8, 20,40]
                 for index, filter_size in enumerate(kernels):
                     rates = smooth_calcium_signals(signal, filter_size)
                     umap_model = umap.UMAP(n_neighbors=120, n_components=dim, min_dist=0.1, random_state=42)
                     umap_model.fit(rates)
                     umap_emb = umap_model.transform(rates)
-                    ax = fig.add_subplot(row, col, index + 2 , projection='3d')
-                    b = ax.scatter(*umap_emb[:, :3].T, color=mov_dir_color, s=1, alpha=0.5)
-                    ax.scatter([], [], color=lrgu.get_dir_color(np.array([0])), label='none')
-                    ax.scatter([], [], color=lrgu.get_dir_color(np.array([-1])), label='left')
-                    ax.scatter([], [], color=lrgu.get_dir_color(np.array([1])), label='right')
-                    ax.set_title('UMAP Direction')
-                    ax.view_init(init_view1, init_view2)  # Set the view angle
+                    #ax = fig.add_subplot(row, col, index + 1 , projection='3d')
+                    #b = ax.scatter(*umap_emb[:, :3].T, color=mov_dir_color, s=1, alpha=0.5)
+                    #ax.scatter([], [], color=lrgu.get_dir_color(np.array([0])), label='none')
+                    #ax.scatter([], [], color=lrgu.get_dir_color(np.array([-1])), label='left')
+                    #ax.scatter([], [], color=lrgu.get_dir_color(np.array([1])), label='right')
+                    #ax.set_title('UMAP Direction')
+                    #ax.view_init(init_view1, init_view2)  # Set the view angle
 
-                    ax = fig.add_subplot(row, col, index + 7, projection='3d')
+                    ax = fig.add_subplot(row, col, index + 1, projection='3d')
                     b = ax.scatter(*umap_emb[:, :3].T, c=beh_variables['pos'], s=1, alpha=0.5,cmap = 'magma')
                     ax.set_title('UMAP Position')
+                    ax.grid(False)
                     ax.view_init(init_view1, init_view2)  # Set the view angle
 
-                    ax = fig.add_subplot(row, col, index + 12, projection='3d')
-                    b = ax.scatter(*umap_emb[:, :3].T, c=beh_variables['time'], s=1, alpha=0.5, cmap = 'Greens')
+                    ax = fig.add_subplot(row, col, index + 5, projection='3d')
+                    b = ax.scatter(*umap_emb[:, :3].T, c=beh_variables['time'], s=1, alpha=0.5, cmap = 'YlGn_r')
                     ax.set_title('UMAP Time')
+                    ax.grid(False)
                     ax.view_init(init_view1, init_view2)  # Set the view angle
 
                 fig.tight_layout()
 
                 fig.savefig(os.path.join(msave_dir, f"{mouse}_umap_filters_{signal_name}_{session}_{init_view1}_{init_view2}.png"), dpi=400,
+                            bbox_inches="tight")
+
+                fig.savefig(os.path.join(msave_dir, f"{mouse}_umap_filters_{signal_name}_{session}_{init_view1}_{init_view2}.svg"), dpi=400,
                             bbox_inches="tight")
