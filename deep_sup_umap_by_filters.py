@@ -71,6 +71,10 @@ base_dir =  '/home/melma31/Documents/deepsup_project/'
 mice_dict = {'superficial': ['CGrin1','CZ3','CZ4','CZ6','CZ8','CZ9'],
             'deep':['ChZ4','ChZ7','ChZ8','GC2','GC3','GC7','GC5_nvista','TGrin1']
             }
+
+mice_dict = {
+            'deep':['GC2']
+            }
 mice_area = list(mice_dict.keys())
 signal_name = 'clean_traces'
 
@@ -127,7 +131,8 @@ for area in mice_area:
 
                 row = 2
                 col = 4
-                fig = plt.figure(figsize=(10, 4))
+                kernels = [2,4,6,8,10,12,14,16,18,10]
+                fig = plt.figure(figsize=(10, 10*len(kernels)))
 
                 # compute umap
                 #umap_model = umap.UMAP(n_neighbors=120, n_components=dim, min_dist=0.1, random_state=42)
@@ -152,7 +157,7 @@ for area in mice_area:
                 #ax.set_title('UMAP Time')
                 #ax.view_init(0, 0)  # Set the view angle
 
-                kernels = [4, 8, 20,40]
+
                 for index, filter_size in enumerate(kernels):
                     rates = smooth_calcium_signals(signal, filter_size)
                     umap_model = umap.UMAP(n_neighbors=120, n_components=dim, min_dist=0.1, random_state=42)
@@ -172,7 +177,7 @@ for area in mice_area:
                     ax.grid(False)
                     ax.view_init(init_view1, init_view2)  # Set the view angle
 
-                    ax = fig.add_subplot(row, col, index + 5, projection='3d')
+                    ax = fig.add_subplot(row, col, index + 10, projection='3d')
                     b = ax.scatter(*umap_emb[:, :3].T, c=beh_variables['time'], s=1, alpha=0.5, cmap = 'YlGn_r')
                     ax.set_title('UMAP Time')
                     ax.grid(False)

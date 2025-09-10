@@ -357,3 +357,196 @@ figure.savefig(fig_path, dpi=400, bbox_inches="tight")
 fig_path = os.path.join(save_dir, f"SI_bar_comparison_0.2s_{signal_name}_one_sided.svg")
 figure.savefig(fig_path, dpi=400, bbox_inches="tight")
 print(f"Saved figure to {fig_path}")
+
+######################################################3
+
+import pandas as pd
+column_names = ['area','session','condition','behavioral_label','si']
+df_combined_all = pd.read_csv('/home/melma31/Documents/time_project_figures/'+'si_deep_sup.csv', header=None, names= column_names)
+df_combined = df_combined_all[df_combined_all["area"].isin(["deep", "superficial"])]
+
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.stats import ttest_ind
+from matplotlib.lines import Line2D
+
+# --- Prep ---
+column_names = ['area','session','condition','behavioral_label','si']
+df_combined_all = pd.read_csv(
+    '/home/melma31/Documents/time_project_figures/si_deep_sup.csv',
+    header=None, names=column_names
+)
+
+df_plot = df_combined_all[df_combined_all["area"].isin(["deep", "superficial"])].copy()
+
+beh_order = ['pos', 'time']
+area_order = ['superficial', 'deep']
+cond_order = sorted(df_plot['condition'].unique())
+
+# --- Custom palettes ---
+bar_palette = {'superficial': '#9900ff', 'deep': '#cc9900'}
+cond_markers = {cond_order[0]: 'o', cond_order[1]: '*'}
+
+# --- Barplot ---
+figure = plt.figure(figsize=(8, 6))
+ax = sns.barplot(
+    data=df_plot, x='behavioral_label', y='si', hue='area',
+    order=beh_order, hue_order=area_order,
+    palette=bar_palette, errorbar='sd', capsize=0.1, ax=plt.gca()
+)
+
+# --- Dot overlay ---
+beh_to_x = {b: i for i, b in enumerate(beh_order)}
+area_offset = {'superficial': -0.2, 'deep': 0.2}
+rng = np.random.default_rng(0)
+jitter_scale = 0.04
+
+for _, row in df_plot.iterrows():
+    x = beh_to_x[row['behavioral_label']] + area_offset[row['area']]
+    x += rng.normal(0.0, jitter_scale)
+    y = row['si']
+    ax.scatter(
+        x, y,
+        s=40,
+        facecolor='gray',
+        edgecolor='black', linewidth=0.4,
+        marker=cond_markers[row['condition']],
+        alpha=0.9,
+        zorder=3
+    )
+
+# --- Legends ---
+# bar legend (Area)
+bar_legend = ax.legend(title='Area', loc='upper left', bbox_to_anchor=(1.02, 1.0))
+
+# condition legend (markers only, all gray)
+cond_handles = [
+    Line2D([0], [0], marker=m, linestyle='', color='gray',
+           markeredgecolor='black', markeredgewidth=0.4, label=str(c))
+    for c, m in cond_markers.items()
+]
+cond_legend = ax.legend(handles=cond_handles, title='Condition',
+                        loc='upper left', bbox_to_anchor=(1.02, 0.7))
+ax.add_artist(bar_legend)
+
+# --- Significance (one-sided: deep > superficial) ---
+alpha_levels = [(0.001, '***'), (0.01, '**'), (0.05, '*')]
+y_max = df_plot['si'].max()
+increment = 0.05
+
+for i, beh in enumerate(beh_order):
+    beh_df = df_plot[df_plot['behavioral_label'] == beh]
+    si_sup = beh_df[beh_df['area'] == 'superficial']['si']
+    si_deep = beh_df[beh_df['area'] == 'deep']['si']
+    stat, pval_two_sided = ttest_ind(si_deep, si_sup, equal_var=False)
+    pval = pval_two_sided / 2 if stat > 0 else 1.0
+    signif = ''
+    for alpha, symbol in alpha_levels:
+        if pval < alpha:
+            signif = symbol
+            break
+    if signif:
+        x1, x2 = i + area_offset['superficial'], i + area_offset['deep']
+        y = y_max + (i + 1) * increment
+        ax.plot([x1, x1, x2, x2], [y, y + 0.01, y + 0.01, y], lw=1.3, color='black')
+        ax.text((x1 + x2) / 2, y + 0.015, signif, ha='center', va='bottom', fontsize=12)
+
+# --- Final formatting ---
+ax.set_title('Structure Index (SI) at Filter Time = 0.2s\n(One-sided test: Deep > Superficial)')
+ax.set_ylabel('Structure Index (SI)')
+ax.set_xlabel('Behavioral Condition')
+ax.set_xticklabels(beh_order)
+ax.set_ylim(0, y_max + 0.25)
+sns.despine()
+plt.tight_layout()
+plt.show()
+# Save figure
+fig_path = os.path.join(save_dir, f"SI_bar_comparison_all_0.2s_{signal_name}_one_sided.png")
+figure.savefig(fig_path, dpi=400, bbox_inches="tight")
+fig_path = os.path.join(save_dir, f"SI_bar_comparison_all_0.2s_{signal_name}_one_sided.svg")
+figure.savefig(fig_path, dpi=400, bbox_inches="tight")
+print(f"Saved figure to {fig_path}")
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Pivot to wide form: one SI value per behavioral_label
+df_wide = df_plot.pivot_table(
+    index=["area", "session", "condition"],
+    columns="behavioral_label",
+    values="si"
+).reset_index()
+
+# Custom color and marker palettes
+bar_palette = {'superficial': '#9900ff', 'deep': '#cc9900'}
+cond_markers = {cond_order[0]: 'o', cond_order[1]: '*'}
+
+# Scatter plot
+plt.figure(figsize=(6, 6))
+sns.scatterplot(
+    data=df_wide,
+    x="pos",
+    y="time",
+    hue="area",
+    style="condition",
+    palette=bar_palette,
+    markers=cond_markers,
+    s=100,
+    edgecolor="black"
+)
+
+plt.xlabel("SI (pos)")
+plt.ylabel("SI (time)")
+plt.title("SI: pos vs time")
+plt.axline((0, 0), slope=1, linestyle="--", color="gray", linewidth=1)
+plt.tight_layout()
+plt.show()
+fig_path = os.path.join(save_dir, f"SI_scatter_comparison_all_0.2s_{signal_name}.png")
+plt.savefig(fig_path, dpi=400, bbox_inches="tight")
+fig_path = os.path.join(save_dir, f"SI_scatter_comparison_all_0.2s_{signal_name}.svg")
+plt.savefig(fig_path, dpi=400, bbox_inches="tight")
+print(f"Saved figure to {fig_path}")
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Filter only ephys condition
+df_ephys = df_plot[df_plot["condition"] == "ephys"].copy()
+
+# Pivot so that area becomes columns (deep vs superficial) for each behavioral_label
+df_wide = df_ephys.pivot_table(
+    index=["session", "behavioral_label"],
+    columns="area",
+    values="si"
+).reset_index()
+
+# Setup figure
+fig, axes = plt.subplots(1, 2, figsize=(12, 6), sharex=True, sharey=True)
+
+for ax, beh in zip(axes, ["pos", "time"]):
+    df_beh = df_wide[df_wide["behavioral_label"] == beh]
+
+    sns.scatterplot(
+        data=df_beh,
+        x="deep",
+        y="superficial",
+        ax=ax,
+        color="black",
+        s=80,
+        edgecolor="white"
+    )
+    ax.plot([0, 1], [0, 1], 'k--', linewidth=1)  # diagonal reference
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_title(f"{beh} (ephys)")
+    ax.set_xlabel("SI (deep)")
+    ax.set_ylabel("SI (superficial)")
+
+plt.tight_layout()
+plt.show()
+fig_path = os.path.join(save_dir, f"SI_scatter_comparison_ephys_0.2s_{signal_name}.png")
+plt.savefig(fig_path, dpi=400, bbox_inches="tight")
+fig_path = os.path.join(save_dir, f"SI_scatter_comparison_ephys_0.2s_{signal_name}.svg")
+plt.savefig(fig_path, dpi=400, bbox_inches="tight")
+print(f"Saved figure to {fig_path}")

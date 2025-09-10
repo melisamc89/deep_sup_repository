@@ -16,11 +16,31 @@ import matplotlib.pyplot as plt
 percentage = 10
 percentage_text = str(percentage)
 minima_values = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 200, 300]
+def smooth_calcium_signals(calcium_data, sigma=4):
+    """
+    Apply Gaussian smoothing to each row of the calcium imaging data.
+    Each row represents the calcium signal of one neuron.
+
+    Parameters:
+    - calcium_data: 2D numpy array, where each row is a neuron's time series.
+    - sigma: Standard deviation for Gaussian kernel. The value is in terms of index units.
+
+    Returns:
+    - smoothed_signals: 2D numpy array of smoothed signals.
+    """
+    # Initialize an array to store the smoothed signals
+    smoothed_signals = np.zeros_like(calcium_data)
+
+    # Apply Gaussian smoothing to each row (neuron)
+    for i in range(calcium_data.shape[1]):
+        smoothed_signals[:,i] = gaussian_filter1d(calcium_data[:,i], sigma=sigma)
+
+    return smoothed_signals
 
 # Directories
 base_dir = '/home/melma31/Documents/deepsup_project/'
 data_dir = os.path.join(base_dir, 'data')
-save_dir = os.path.join(base_dir, 'Energy')
+save_dir = os.path.join(base_dir, 'EnergyFilter')
 os.makedirs(save_dir, exist_ok=True)
 
 # Mouse groups
@@ -125,7 +145,10 @@ for coloring in coloring_condition:
                     mov_dir[mov_dir == 0] = temp_mov[np.where(mov_dir == 0)[0]]
                     valid_index = np.arange(0, mov_dir.shape[0])
 
+                    filter_size = 16
                     signal = lrgu.get_signal(session_pd, signal_name)
+                    signal = smooth_calcium_signals(signal, filter_size)
+
                     energies = get_energy_segments(signal)
 
                     for top_k in minima_values:
@@ -148,7 +171,7 @@ for coloring in coloring_condition:
                             else:
                                 r_value = np.nan
                                 r_squared = np.nan  # No R² value when there's not enough data
-                            R_summary[top_k][model][mouse][label] = {'r_value': r_value, 'r_squared': r_squared}
+                            R_summary[top_k][model][mouse][label] = {'r_value': r_value, 'r_squared': r_squared, 'slope': slope}
 
                 sys.stdout = original_stdout
                 f.close()
@@ -166,7 +189,7 @@ custom_palette = {
     'deep': '#cc9900',         # RGB: 204, 153, 0
 }
 
-r_summary_path = '/home/melma31/Documents/deepsup_project/Energy/R_summary_all_minima.pkl'
+r_summary_path = '/home/melma31/Documents/deepsup_project/EnergyFilter/R_summary_all_minima.pkl'
 mice_dict = {
     'superficial': ['CGrin1', 'CZ3', 'CZ4', 'CZ6', 'CZ8', 'CZ9'],
     'deep': ['ChZ4', 'ChZ8', 'ChZ7', 'GC2', 'GC3', 'GC7', 'GC5_nvista', 'TGrin1']
@@ -189,7 +212,7 @@ if os.path.exists(r_summary_path):
                 for model_dict in R_summary[top_k].values():
                     for mouse, segments in model_dict.items():
                         if mouse in mice_dict[depth] and segment in segments:
-                            r = segments[segment]['r_value']
+                            r = segments[segment]['slope']
                             if r is not None and not np.isnan(r):
                                 r_vals.append(r)
                 if r_vals:
@@ -242,14 +265,14 @@ for segment in segment_labels:
             color=custom_palette[depth]
         )
     plt.xlabel('Number of Minima (top_k)')
-    plt.ylabel('Average R-value')
-    plt.title(f'R-value vs. Number of Minima — {segment}')
+    plt.ylabel('Average Slope-value')
+    plt.title(f'Slope-value vs. Number of Minima — {segment}')
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, f'enery_number_of_minima_stability_r_value.png'),
+    plt.savefig(os.path.join(save_dir, f'enery_number_of_minima_stability_slope_value.png'),
                 dpi=400, bbox_inches="tight")
-    plt.savefig(os.path.join(save_dir, f'enery_number_of_minima_stability_r_value.svg'),
+    plt.savefig(os.path.join(save_dir, f'enery_number_of_minima_stability_slope_value.svg'),
                 dpi=400, bbox_inches="tight")
     plt.show()
 
@@ -338,8 +361,8 @@ if os.path.exists(r_summary_path):
     segment_labels = ['First_10', 'Last_10']
     minima_values = sorted(R_summary.keys())
     correlation_by_depth = {
-        'R_value': {seg: {depth: [] for depth in mice_dict} for seg in segment_labels},
-        'R_squared': {seg: {depth: [] for depth in mice_dict} for seg in segment_labels}
+        'slope': {seg: {depth: [] for depth in mice_dict} for seg in segment_labels},
+        'r_squared': {seg: {depth: [] for depth in mice_dict} for seg in segment_labels}
     }
 
     # Compute correlation between SI and R-value and R-squared
@@ -353,7 +376,7 @@ if os.path.exists(r_summary_path):
                 for model_dict in R_summary[top_k].values():
                     for mouse, segments in model_dict.items():
                         if mouse in mice and seg in segments:
-                            r = segments[seg]['r_value']
+                            r = segments[seg]['slope']
                             r_squared = segments[seg]['r_squared']
                             si_match = si_pd[si_pd['mouse'] == mouse]
                             if not si_match.empty:
@@ -372,8 +395,8 @@ if os.path.exists(r_summary_path):
                     corr_r = corr_r_squared = np.nan
 
                 # Store the results for both R-value and R-squared
-                correlation_by_depth['R_value'][seg][depth].append(corr_r)
-                correlation_by_depth['R_squared'][seg][depth].append(corr_r_squared)
+                correlation_by_depth['slope'][seg][depth].append(corr_r)
+                correlation_by_depth['r_squared'][seg][depth].append(corr_r_squared)
 
     # Plotting one figure per segment
     for seg in segment_labels:
@@ -381,19 +404,19 @@ if os.path.exists(r_summary_path):
         for depth in mice_dict:
             plt.plot(
                 minima_values,
-                correlation_by_depth['R_value'][seg][depth],
+                correlation_by_depth['slope'][seg][depth],
                 '-o',
-                label=f'R-value - {depth.capitalize()}',
+                label=f'Slope - {depth.capitalize()}',
                 color=custom_palette[depth]
             )
         plt.xlabel('Number of Minima (top_k)')
-        plt.ylabel('Correlation R (SI vs Energy R-value)')
-        plt.title(f'SI vs Energy R-value Correlation — {seg}')
+        plt.ylabel('Correlation Slope (SI vs Energy R-value)')
+        plt.title(f'SI vs Energy Slope Correlation — {seg}')
         plt.grid(False)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(os.path.join(save_dir, f'correlation_si_vs_energy_r_value_{seg}.png'), dpi=400, bbox_inches="tight")
-        plt.savefig(os.path.join(save_dir, f'correlation_si_vs_energy_r_value_{seg}.svg'), dpi=400, bbox_inches="tight")
+        plt.savefig(os.path.join(save_dir, f'correlation_si_vs_energy_slope_value_{seg}.png'), dpi=400, bbox_inches="tight")
+        plt.savefig(os.path.join(save_dir, f'correlation_si_vs_energy_slope_value_{seg}.svg'), dpi=400, bbox_inches="tight")
         plt.show()
 
         # Plotting R-squared (R²) correlation
@@ -401,7 +424,7 @@ if os.path.exists(r_summary_path):
         for depth in mice_dict:
             plt.plot(
                 minima_values,
-                correlation_by_depth['R_squared'][seg][depth],
+                correlation_by_depth['r_squared'][seg][depth],
                 '-o',
                 label=f'R-squared - {depth.capitalize()}',
                 color=custom_palette[depth]
@@ -425,7 +448,7 @@ import numpy as np
 from scipy.stats import linregress
 
 # Configuration
-selected_minima = [50, 75, 100]
+selected_minima = [30,40,50]
 segment = 'First_10'
 
 custom_palette = {
@@ -439,33 +462,35 @@ mice_dict = {
 }
 
 # Plot
-fig, axs = plt.subplots(1, 3, figsize=(9, 4), sharey=True)  # Adjusted number of subplots
+fig, axs = plt.subplots(2, 3, figsize=(9, 8))  # Adjusted number of subplots
 for i, top_k in enumerate(selected_minima):
-    ax = axs[i]
-    depth_data = {'superficial': {'si': [], 'r': [], 'r_squared': []}, 'deep': {'si': [], 'r': [], 'r_squared': []}}
+    ax = axs[0,i]
+    ax_2 = axs[1,i]
+
+    depth_data = {'superficial': {'si': [], 'slope': [], 'r_squared': []}, 'deep': {'si': [], 'slope': [], 'r_squared': []}}
 
     for depth, mice in mice_dict.items():
         for model_dict in R_summary[top_k].values():
             for mouse, segments in model_dict.items():
                 if mouse in mice and segment in segments:
-                    r_val = segments[segment]['r_value']
+                    r_val = segments[segment]['slope']
                     r_squared = segments[segment]['r_squared']
                     si_match = si_pd[si_pd['mouse'] == mouse]
                     if not si_match.empty:
                         si_val = si_match['si_time'].mean()
                         depth_data[depth]['si'].append(si_val)
-                        depth_data[depth]['r'].append(r_val)
+                        depth_data[depth]['slope'].append(r_val)
                         depth_data[depth]['r_squared'].append(r_squared)
 
     for depth in ['superficial', 'deep']:
         si_vals = np.array(depth_data[depth]['si'])
-        r_vals = np.array(depth_data[depth]['r'])
+        r_vals = np.array(depth_data[depth]['slope'])
         r_squared_vals = np.array(depth_data[depth]['r_squared'])
         color = custom_palette[depth]
 
         if len(si_vals) > 1:
             ax.scatter(si_vals, r_vals, color=color, edgecolor='k', s=50, alpha=0.7, label=f'{depth.capitalize()} R')
-            ax.scatter(si_vals, r_squared_vals, color=color, marker='x', edgecolor='k', s=50, alpha=0.7, label=f'{depth.capitalize()} R²')
+            ax_2.scatter(si_vals, r_squared_vals, color=color, marker='x', edgecolor='k', s=50, alpha=0.7, label=f'{depth.capitalize()} R²')
 
             # Linear regression for R-value
             slope, intercept, r_val, _, _ = linregress(si_vals, r_vals)
@@ -473,89 +498,97 @@ for i, top_k in enumerate(selected_minima):
             y_line = slope * x_line + intercept
             ax.plot(x_line, y_line, color=color, linestyle='--', label=f'{depth} R={r_val:.2f}')
 
-            # Linear regression for R-squared
-            #slope_r2, intercept_r2, r_squared_val, _, _ = linregress(si_vals, r_squared_vals)
-            #y_line_r2 = slope_r2 * x_line + intercept_r2
-            #ax.plot(x_line, y_line_r2, color=color, linestyle=':', label=f'{depth} R²={r_squared_val:.2f}')
+            #Linear regression for R-squared
+            slope_r2, intercept_r2, r_squared_val, _, _ = linregress(si_vals, r_squared_vals)
+            y_line_r2 = slope_r2 * x_line + intercept_r2
+            ax_2.plot(x_line, y_line_r2, color=color, linestyle=':', label=f'{depth} R²={r_squared_val:.2f}')
 
     ax.set_title(f'top_k = {top_k}')
     ax.set_xlabel('SI (Time)')
     if i == 0:
-        ax.set_ylabel('Energy R-value')
+        ax.set_ylabel('Energy Slope')
     ax.legend(fontsize='small')
 
-plt.suptitle(f'Scatter: SI vs Energy R & R² ({segment}) — Separate Regression by Depth', fontsize=16)
+plt.suptitle(f'Scatter: SI vs Energy Slope & R² ({segment}) — Separate Regression by Depth', fontsize=16)
 plt.tight_layout(rect=[0, 0, 1, 0.92])
-plt.savefig(os.path.join(save_dir, 'regression.png'))
-plt.savefig(os.path.join(save_dir, 'regression.svg'))
+plt.savefig(os.path.join(save_dir, 'regression2.png'))
+plt.savefig(os.path.join(save_dir, 'regression2.svg'))
 plt.show()
 
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy.stats import linregress
 
-# Configuration
-selected_minima = [50, 75, 100]
-segment = 'First_10'
 
-custom_palette = {
-    'superficial': '#9900ff',  # purple
-    'deep': '#cc9900',         # gold
-}
+import pandas as pd
 
-mice_dict = {
-    'superficial': ['CGrin1', 'CZ3', 'CZ4', 'CZ6', 'CZ8', 'CZ9'],
-    'deep': ['ChZ4', 'ChZ8', 'ChZ7', 'GC2', 'GC3', 'GC7', 'GC5_nvista', 'TGrin1']
-}
+# Collect all data
+all_regression_data = []
 
-# Plot
-fig, axs = plt.subplots(1, 3, figsize=(9, 4), sharey=True)  # Adjusted number of subplots
-for i, top_k in enumerate(selected_minima):
-    ax = axs[i]
-    depth_data = {'superficial': {'si': [], 'r': [], 'r_squared': []}, 'deep': {'si': [], 'r': [], 'r_squared': []}}
+for top_k in selected_minima:
+    depth_data = {'superficial': {'si': [], 'slope': [], 'r_squared': []}, 'deep': {'si': [], 'slope': [], 'r_squared': []}}
 
     for depth, mice in mice_dict.items():
         for model_dict in R_summary[top_k].values():
             for mouse, segments in model_dict.items():
                 if mouse in mice and segment in segments:
-                    r_val = segments[segment]['r_value']
+                    r_val = segments[segment]['slope']
                     r_squared = segments[segment]['r_squared']
                     si_match = si_pd[si_pd['mouse'] == mouse]
                     if not si_match.empty:
                         si_val = si_match['si_time'].mean()
                         depth_data[depth]['si'].append(si_val)
-                        depth_data[depth]['r'].append(r_val)
+                        depth_data[depth]['slope'].append(r_val)
                         depth_data[depth]['r_squared'].append(r_squared)
 
-    for depth in ['superficial', 'deep']:
-        si_vals = np.array(depth_data[depth]['si'])
-        r_vals = np.array(depth_data[depth]['r'])
-        r_squared_vals = np.array(depth_data[depth]['r_squared'])
-        color = custom_palette[depth]
+                        # Add to long-format list
+                        all_regression_data.append({
+                            'Mouse': mouse,
+                            'Depth': depth,
+                            'TopK': top_k,
+                            'SI': si_val,
+                            'Slope': r_val,
+                            'R2': r_squared
+                        })
 
-        if len(si_vals) > 1:
-            ax.scatter(si_vals, r_vals, color=color, edgecolor='k', s=50, alpha=0.7, label=f'{depth.capitalize()} R')
-            ax.scatter(si_vals, r_squared_vals, color=color, marker='x', edgecolor='k', s=50, alpha=0.7, label=f'{depth.capitalize()} R²')
+# Create DataFrame
+df_regression = pd.DataFrame(all_regression_data)
 
-            # Linear regression for R-value
-            slope, intercept, r_val, _, _ = linregress(si_vals, r_vals)
-            x_line = np.linspace(min(si_vals), max(si_vals), 100)
-            y_line = slope * x_line + intercept
-            ax.plot(x_line, y_line, color=color, linestyle='--', label=f'{depth} R={r_val:.2f}')
+import seaborn as sns
+import os
 
-            # Linear regression for R-squared
-            #slope_r2, intercept_r2, r_squared_val, _, _ = linregress(si_vals, r_squared_vals)
-            #y_line_r2 = slope_r2 * x_line + intercept_r2
-            #ax.plot(x_line, y_line_r2, color=color, linestyle=':', label=f'{depth} R²={r_squared_val:.2f}')
+from scipy.stats import ttest_ind
 
-    ax.set_title(f'top_k = {top_k}')
-    ax.set_xlabel('SI (Time)')
-    if i == 0:
-        ax.set_ylabel('Energy R-value')
-    ax.legend(fontsize='small')
+def add_p_values(ax, df, metric, y_offset=0.05):
+    """Add p-values between superficial and deep per TopK group."""
+    topks = sorted(df['TopK'].unique())
+    for i, top_k in enumerate(topks):
+        df_k = df[df['TopK'] == top_k]
+        deep_vals = df_k[df_k['Depth'] == 'deep'][metric]
+        sup_vals = df_k[df_k['Depth'] == 'superficial'][metric]
+        if len(deep_vals) > 1 and len(sup_vals) > 1:
+            tstat, pval = ttest_ind(sup_vals, deep_vals, equal_var=False)
+            p_text = f"p = {pval:.3f}" if pval >= 0.001 else "p < 0.001"
 
-plt.suptitle(f'Scatter: SI vs Energy R & R² ({segment}) — Separate Regression by Depth', fontsize=16)
-plt.tight_layout(rect=[0, 0, 1, 0.92])
-plt.savefig(os.path.join(save_dir, 'regression.png'))
-plt.savefig(os.path.join(save_dir, 'regression.svg'))
+            # X positions for annotation
+            x1, x2 = i - 0.2, i + 0.2
+            y = max(df_k[metric]) + y_offset
+            ax.plot([x1, x1, x2, x2], [y, y + y_offset, y + y_offset, y], lw=1.5, c='k')
+            ax.text((x1 + x2)/2, y + y_offset * 1.3, p_text, ha='center', va='bottom', fontsize=9)
+
+plt.figure(figsize=(8, 5))
+ax = sns.boxplot(data=df_regression, x='TopK', y='Slope', hue='Depth', palette=custom_palette)
+plt.title('Slope vs TopK by Depth')
+plt.ylabel('Energy Slope')
+add_p_values(ax, df_regression, metric='Slope', y_offset=0.05)
+plt.tight_layout()
 plt.show()
+plt.savefig(save_dir + '/slope_box_by_depth.png')
+plt.close()
+
+plt.figure(figsize=(8, 5))
+ax = sns.boxplot(data=df_regression, x='TopK', y='R2', hue='Depth', palette=custom_palette)
+plt.title('R² vs TopK by Depth')
+plt.ylabel('Energy R²')
+add_p_values(ax, df_regression, metric='R2', y_offset=0.05)
+plt.tight_layout()
+plt.show()
+plt.savefig(save_dir + '/r2_box_by_depth.png')
+plt.close()
